@@ -1,0 +1,22 @@
+name: MT_inpainting_diffuser
+channels:
+- defaults
+- conda-forge
+
+dependencies:
+  - python==3.11
+  - pip==24.0
+  - pip:
+    - torch==2.3.1
+    - numpy==1.26.4 
+    - gymnasium==0.29.1
+    - gymnasium-robotics==1.2.4
+    - mujoco<3.0.0
+    - minari[all]==0.5.0
+    - wandb==0.17.3
+    - einops==0.8.0
+    - scipy>=1.4.1
+    - h5py==3.11.0
+    - imageio==2.34.2
+    - imageio[ffmpeg]
+    - matplotlib
