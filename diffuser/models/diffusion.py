@@ -366,9 +366,10 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                  model, 
                  horizon, 
                  observation_dim, 
-                 action_dim,task_dim, 
+                 action_dim,
+                 task_dim, 
                  n_timesteps=20,
-                 loss_type='l2', 
+                 loss_type='l2',
                  clip_denoised=True,
                  action_weight=1.0,
                  loss_discount=1.0,
@@ -389,6 +390,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
 
         self.loss_weights = self.get_loss_weights(action_weight, loss_discount) # TODO 
         self.loss_fn = Losses[loss_type]()
+        self.get_first_state_mask()
 
     def get_loss_weights(self, action_weight, discount):
         '''
@@ -416,6 +418,12 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
         loss_weights[0, :self.observation_dim] = 0
 
         return loss_weights.to(device="cuda").unsqueeze(0) # (1,H,T) TODO fix device... 
+
+    def get_first_state_mask(self):
+        mask=torch.zeros((1, self.horizon, self.transition_dim))
+        mask[:,0,:self.observation_dim]=1
+        mask=mask.to(device="cuda")
+        self.first_state_mask=mask
 
     #------------------------------------------ sampling ------------------------------------------#
 
@@ -586,28 +594,28 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
 
     #------------------------------------------ training ------------------------------------------#
 
-    def p_losses(self, x_start, t):
+    def p_losses(self, x_start, t, returns):
 
+        mask=self.first_state_mask # always conditioned on first state
         noise = torch.randn_like(x_start)
         x_noisy = self.q_sample(x_start=x_start, t=t, noise=noise)
- 
-        t = torch.tensor(t, dtype=torch.float, requires_grad=True)
 
-        x_noisy.requires_grad= True
-        noise.requires_grad = True
+        x_noisy=x_start*mask+(1-mask)*x_noisy # unmasking first state
 
-        pred_epsilon = self.model(x_noisy,t)
+        t = t.clone().detach().float().requires_grad_(True)
+
+        pred_epsilon = self.model(x_noisy,t,returns=returns) # TODO maybe pass the mask here... makes more sense.. 
 
         assert noise.shape == pred_epsilon.shape
 
-        loss = self.loss_fn(pred_epsilon, noise,loss_weights=self.loss_weights) # Maybe do two functions to do that... 
+        loss = self.loss_fn(pred_epsilon, noise,loss_weights=self.loss_weights)
 
         return loss
     
 
-    def loss(self, x): 
+    def loss(self, x, returns): 
     
         batch_size = len(x)
         t = torch.randint(0, self.n_timesteps, (batch_size,), device=x.device).long()
 
-        return self.p_losses(x, t)
+        return self.p_losses(x, t, returns)

@@ -14,7 +14,7 @@ import wandb
 #-----------------------------------------------------------------------------#
 
 dataset="maze2d"
-exp_name="rtg_sampling_epsilon"
+exp_name="gaussian_diff_returns_condition"
 
 args=load_experiment_params(f"logs/configs/{dataset}/{exp_name}/configs_diffusion.txt")
 
@@ -47,7 +47,8 @@ dataset_config = Config(
     use_padding=args["use_padding"],
     normed_keys=args["normed_keys"],
     view_keys_dict=args["view_keys_dict"],
-    discount=args["discount"])
+    discount=args["discount"],
+    exp_returns= args["exp_returns"])
 
 dataset = dataset_config()
 observation_dim = dataset.observation_dim
@@ -68,11 +69,12 @@ model_config = Config(
     savepath=(savepath, 'model_config.pkl'),
     device=device,
     horizon=args["horizon"],
-    transition_dim=observation_dim+action_dim+2+task_dim, # S+A+R+RTG+TASK
+    transition_dim=observation_dim+action_dim+1+task_dim, # S+A+R+TASK
     dim=args["dim"],
     dim_mults=args["dim_mults"],
     attention=args["attention"],
-    calc_energy=args["calc_energy"]
+    returns_condition=args["returns_condition"],
+    condition_dropout=args["condition_dropout"]
     )
 
 
@@ -87,9 +89,7 @@ diffusion_config = Config(
     loss_type=args["loss_type"],
     clip_denoised=args["clip_denoised"],
     action_weight=args["action_weight"],
-    rtg_weight=args["rtg_weight"],
     loss_discount=args["loss_discount"],
-    p_mode=args["p_mode"],                    
     device=device,
 )
 
@@ -113,7 +113,7 @@ trainer_config = Config(
 )
 
 trainer = trainer_config(diffusion, dataset)
-trainer.load(epoch=40000)
+#trainer.load(epoch=40000)
 
 #-----------------------------------------------------------------------------#
 #------------------------ test forward & backward pass -----------------------#
