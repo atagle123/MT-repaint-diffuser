@@ -422,11 +422,11 @@ class Maze2d_inpaint_dataset_returns(SequenceDataset):
         observations = episode['observations'][start:end]
         actions = episode['actions'][start:end]
         rewards=episode['rewards'][start:end]
-        returns=episode["returns"][start:end]
+        returns=episode["returns"][start]
         task=episode["task"][start:end]
 
         trajectories = np.concatenate([observations, actions, rewards, task], axis=-1)
-
+        
         batch = RewardBatch(trajectories,returns)
 
         return batch
