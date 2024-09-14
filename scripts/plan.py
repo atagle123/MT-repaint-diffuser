@@ -1,7 +1,7 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
-from diffuser.sampling.policies import Policy
+from diffuser.sampling.policies import Policy_repaint_return_conditioned
 from diffuser.utils.setup import load_experiment_params,set_seed
 import diffuser.utils as utils
 import wandb
@@ -15,7 +15,7 @@ from diffuser.utils.rollouts import TrajectoryBuffer
 #-----------------------------------------------------------------------------#
 
 dataset="maze2d"
-exp_name="rtg_sampling_epsilon"
+exp_name="gaussian_diff_returns_condition"
 
 args=load_experiment_params(f"logs/configs/{dataset}/{exp_name}/configs_diffusion.txt")
 
@@ -55,10 +55,11 @@ logger_config = utils.Config(
 logger = logger_config()
 
 policy_config = utils.Config(
-    Policy,
+    Policy_repaint_return_conditioned,
     diffusion_model=diffusion,
     dataset=dataset,
     gamma=args["gamma"],
+    keys_order=("observations","actions","rewards","task"), # TODO maybe this should be an attribute of dataset...
     ## sampling kwargs
     batch_size_sample=args["batch_size_sample"],
     horizon_sample = args["horizon_sample"],
@@ -88,12 +89,14 @@ print(f"Using seed:{seed}")
 env = dataset.minari_dataset.recover_environment(render_mode="rgb_array_list")
 observation, info = env.reset(seed=seed)  
 
-rollouts=TrajectoryBuffer(observation["observation"],info)
+rollouts=TrajectoryBuffer(observation["observation"],info,action_dim=dataset.action_dim)
 
 total_reward = 0
 for t in range(args["max_episode_length"]):
-
-    action, samples = policy(rollouts, batch_size=args["batch_size"]) 
+   # print(observation,"observation")
+    action, samples = policy(rollouts,provide_task=observation["desired_goal"])
+   # print(action)
+   # print("infered_task",samples.task)
     ## execute action in environment
     observation, reward, terminated, truncated, info = env.step(action)
     ## print reward and score
@@ -131,4 +134,4 @@ if wandb_log: wandb.log({"video": wandb.Video(filepath)})
 
 
 ## write results to json file at `args.savepath`
-logger.finish(t, total_reward, terminated, diffusion_experiment,seed,args["scale"],args["batch_size"])
+logger.finish(t, total_reward, terminated, diffusion_experiment,seed,args["batch_size_sample"])
