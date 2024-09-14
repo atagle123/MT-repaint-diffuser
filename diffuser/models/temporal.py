@@ -153,7 +153,7 @@ class TemporalUnet_returns(nn.Module):
         dim_mults=(1, 2, 4, 8),
         attention=False,
         returns_condition=False,
-        condition_dropout=0.1
+        condition_dropout=0.2
     ):
         super().__init__()
 
