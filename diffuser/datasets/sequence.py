@@ -29,7 +29,8 @@ class SequenceDataset(torch.utils.data.Dataset):
                  use_padding=True,
                  normed_keys=[ "observations", 'actions','rewards',"task"],
                  view_keys_dict={"observations":"observation","actions":"actions","rewards":"rewards","task":"desired_goal"}, # the name of the attribute vs the name we want in the dataset.
-                 discount=0.99
+                 discount=0.99,
+                 exp_returns=True
                  ): 
         
         self.horizon = horizon
@@ -48,7 +49,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.make_dataset(view_keys_dict=view_keys_dict)
         self.make_indices(horizon)
 
-        self.make_returns()
+        self.make_returns(exp_returns=exp_returns)
 
         self.normalize_dataset(normed_keys=self.normed_keys,normalizer=import_class(normalizer))
         self.get_norm_keys_dim()
@@ -206,7 +207,7 @@ class SequenceDataset(torch.utils.data.Dataset):
      self.__dict__ = d
     
 
-    def make_returns(self):
+    def make_returns(self,exp_returns):
         print("Making returns... ")
         
         discount_array=self.discount ** np.arange(self.max_path_length) # (H)
@@ -224,7 +225,11 @@ class SequenceDataset(torch.utils.data.Dataset):
             for rew in rewards:
                 rtg_partial=(rtg_partial-rew[0])/self.discount
                 horizon-=1
-                rtg_list.append(np.exp(rtg_partial*norm_factors[horizon]))
+                if exp_returns:
+                    rtg_norm=np.exp(rtg_partial*norm_factors[horizon])
+                else:
+                    rtg_norm=rtg_partial*norm_factors[horizon]
+                rtg_list.append(rtg_norm)
             
             returns_array=np.array(rtg_list[:-1],dtype=np.float32)
             assert returns_array.shape[0]==rewards.shape[0]
@@ -232,7 +237,6 @@ class SequenceDataset(torch.utils.data.Dataset):
             self.episodes[ep_id]["returns"]=atleast_2d(returns_array)
 
         self.normed_keys.append("returns")
-
     
     def calc_norm_factor(self,discount,horizon):
         norm_factor=(1-discount)/(1-discount**(horizon+1))
@@ -336,5 +340,93 @@ class Maze2d_inpaint_dataset(SequenceDataset):
         trajectories = np.concatenate([actions, observations,rewards,returns,task], axis=-1)
 
         batch = Batch(trajectories)
+
+        return batch
+    
+
+class Maze2d_inpaint_dataset_returns(SequenceDataset):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
+
+    def get_env_attributes(self):
+
+        self.minari_dataset=minari.load_dataset(self.dataset_name)
+        self.minari_dataset.set_seed(seed=self.seed)
+        self.env = self.minari_dataset.recover_environment()
+        action_space=self.env.action_space
+        observation_space = self.env.observation_space["observation"]
+
+        assert self.minari_dataset.total_episodes<= self.max_n_episodes
+
+        self.n_episodes=self.minari_dataset.total_episodes
+
+        if isinstance(action_space, gym.spaces.Discrete):
+            self.action_dim = action_space.n
+
+        elif isinstance(action_space, gym.spaces.Box):
+            self.action_dim = action_space.shape[0]
+
+        self.observation_dim = observation_space.shape[0]
+
+
+    def make_dataset(self,view_keys_dict):
+        """
+        Transforms minari dataset to a standard way... 
+
+        Format: episodes_dict.keys-> ["observations","actions","rewards","terminations","truncations","total_returns"]
+                episodes_dict.values-> np.array 2d [H,Dim]
+        """ 
+        print("Making dataset... ")
+
+        episodes_generator = self.minari_dataset.iterate_episodes()
+        self.episodes={}
+        ### generate new dataset in the format ###
+        for episode in episodes_generator:
+            dict={}
+            for new_name_key,key in view_keys_dict.items():
+                
+                attribute=find_key_in_data(episode,key)
+
+                if attribute is None:
+                    raise KeyError(f" Couldn't find a np.array value for the key {key}")
+
+                attribute_2d=atleast_2d(attribute)
+
+                ###
+                # specific truncation in maze2d dataset... 2 options truncate first element or change desired goal... 
+                ###
+                attribute_2d=attribute_2d[1:,:]
+
+                if self.use_padding:
+                    attribute=pad(attribute_2d,max_len=self.max_path_length)
+
+                    assert attribute.shape==(self.max_path_length,attribute_2d.shape[-1])
+
+                else:
+                    attribute=pad_min(attribute_2d,min_len=self.horizon)
+
+                if key=="rewards":  
+                    if episode.terminations.any():
+                        episode_lenght=episode.total_timesteps
+                        attribute[episode_lenght-1]+=self.termination_penalty  # o quizas -1 tambien sirve...
+                        
+                dict[new_name_key]=attribute
+            self.episodes[episode.id]=dict
+
+
+    def __getitem__(self, idx):
+        ep_id, start, end = self.indices[idx]
+        episode=self.episodes[ep_id]
+
+        observations = episode['observations'][start:end]
+        actions = episode['actions'][start:end]
+        rewards=episode['rewards'][start:end]
+        returns=episode["returns"][start:end]
+        task=episode["task"][start:end]
+
+        trajectories = np.concatenate([observations, actions, rewards, task], axis=-1)
+
+        batch = RewardBatch(trajectories,returns)
 
         return batch
