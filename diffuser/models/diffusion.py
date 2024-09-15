@@ -425,7 +425,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
 
     #------------------------------------------ sampling ------------------------------------------#
 
-    @torch.enable_grad()
+    #@torch.enable_grad()
     def p_mean_variance(self,x,t,returns):
 
         t=t.clone().float().detach()
