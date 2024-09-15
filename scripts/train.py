@@ -29,6 +29,8 @@ current_dir=os.getcwd()
 savepath=os.path.join(current_dir,args["logbase"], args["dataset_name"],"diffusion", exp_name)
 os.makedirs(savepath, exist_ok=True)
 
+wandb_log=False
+
 #-----------------------------------------------------------------------------#
 #---------------------------------- dataset ----------------------------------#
 #-----------------------------------------------------------------------------#
@@ -109,7 +111,7 @@ trainer_config = Config(
     save_freq=args["save_freq"],
     label_freq=int(args["n_train_steps"] // args["n_saves"]),
     results_folder=savepath,
-    wandb_log=args["wandb_log"]
+    wandb_log=wandb_log
 )
 
 trainer = trainer_config(diffusion, dataset)
@@ -134,7 +136,7 @@ print('✓')
 
 n_epochs = int(args["n_train_steps"] // args["n_steps_per_epoch"])
 
-if args["wandb_log"]:
+if wandb_log:
     wandb.init(
         project='MT_inpainting_diffuser',
         name=exp_name,
