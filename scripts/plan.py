@@ -87,7 +87,7 @@ seed = int(datetime.now().timestamp()) # TODO maybe change this...
 print(f"Using seed:{seed}")
 
 env = dataset.minari_dataset.recover_environment(render_mode="rgb_array_list")
-observation, info = env.reset(seed=seed)  
+observation, info = env.reset(seed=seed)
 
 rollouts=TrajectoryBuffer(observation["observation"],info,action_dim=dataset.action_dim)
 

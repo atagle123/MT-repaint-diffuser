@@ -204,9 +204,7 @@ class Policy_repaint_return_conditioned(Policy):
         falta revisar que no inpaint step funcione, el sort tambien y la unnormalizacion tambien. evaluar todo aca.
         """ 
         conditions=self.get_last_traj_rollout_torch(rollouts)  # conditions of dim 1,K+1,T
-#        print(" conditions",conditions.shape,conditions)
         normed_conditions=self.norm_evertything(conditions,keys_order=self.keys_order) # dim 1,K+1,T # TODO COMO HACER QUE no se normalicen las cosas que no se...maskeadas con 0...
- #       print(" normed_conditions",normed_conditions.shape,normed_conditions)
         if provide_task is None:
             task=self.inpaint_task(normed_conditions,H=self.horizon_sample)
  #       print(" task",task)
@@ -219,54 +217,31 @@ class Policy_repaint_return_conditioned(Policy):
      
         return(first_action.cpu().numpy(), Trajectories(actions_sorted,observations_sorted,rewards_sorted,task))
 
-    def get_masks_and_batch(self,normed_conditions,batch_size_sample,max_K,H): # TODO view a way to build the mask... possible masks: action inference, task inference, both together, previous + moving index of history... 
-        # 1 option... everything at once...
-        """
-        normed_conditions (torch.Tensor): dim K,T
-        """ # K, known history. IK inpainting Known history, H horizon
-        K=normed_conditions.shape[0]
-        
-        tensor_to_inpaint=expand_tensor(normed_conditions,H=H,max_K=max_K) # TODO acordarse del ultimo state...
-
-        mask=get_mask_from_tensor(normed_conditions, H,action_dim=self.action_dim,observation_dim=self.dataset.observation_dim,max_K=max_K)
-
-        tensor_to_inpaint=tensor_to_inpaint*mask # TODO partial solution to masking the not known stuff
-       # print(mask,mask.shape)
-       # print(tensor_to_inpaint)
-        return mask,tensor_to_inpaint
     
     def inpaint_task(self,normed_conditions,H):
 
-        tensor_to_inpaint=expand_tensor(normed_conditions,H=H,max_K=H) # TODO acordarse del ultimo state... TODO TEST THIS... with K> H
+        tensor_to_inpaint=expand_tensor(normed_conditions,H=H,max_K=H) # B,K,T-> B,H,T # TODO acordarse del ultimo state... TODO TEST THIS... with K> H
 
-        mask=get_mask_from_tensor(normed_conditions,H=H,observation_dim=self.observation_dim,max_K=H) # TODO TEST THIS... 
+        mask=get_mask_from_tensor(normed_conditions,H=H,observation_dim=self.observation_dim,max_K=H) # mask #TODO TEST THIS... AND FIRST STATE...
         mask[:,:,-self.task_dim:]=0 # mask "known" task
         tensor_to_inpaint=mask*tensor_to_inpaint # ENSURE TO not have extra info TODO note that de igual manera esto va a pasar en el modelo...
-        tensor_to_inpaint=tensor_to_inpaint.repeat(self.batch_size_sample,1,1).float()
- #       print("mask task inference",mask.shape,mask) 
+        tensor_to_inpaint=tensor_to_inpaint.repeat(self.batch_size_sample,1,1).float() # ver que pasa si ya le pasamos un batch... 
         mask=mask.repeat(self.batch_size_sample,1,1).float()
 
-        trajectories = self.diffusion_model(traj_known=tensor_to_inpaint, mask=mask,returns=None, **self.sample_kwargs)
- #       print("sampled_task_inference",trajectories.trajectories)
+        trajectories = self.diffusion_model(traj_known=tensor_to_inpaint, mask=mask,returns=None, **self.sample_kwargs) # notar que esto hace que inferir task dependa de returns inconditioned...
         task=self.infer_task_from_batch(trajectories.trajectories)
-        # get mask and condition
-        # pass to the model
-        #obtain task
         return(task)
     
     def infer_task_from_batch(self,sampled_batch):
-        task_mean=torch.mean(sampled_batch[:,:,-self.task_dim:],dim=(0,1))
+        task_mean=torch.mean(sampled_batch[:,:,-self.task_dim:],dim=(0,1))# the dims are specific for 2 dim goal task... 
         return(task_mean)
     
     def inpaint_action(self,normed_conditions,task,H):
         tensor_to_inpaint=expand_tensor(normed_conditions,H=H,max_K=1) # TODO acordarse del ultimo state... TODO TEST THIS... with K> H
         mask=get_mask_from_tensor(normed_conditions,H=H,observation_dim=self.observation_dim,max_K=1) # TODO TEST THIS...
         mask[:,:,-self.task_dim:]=1 # known task... 
- #       print("mask_action",mask.shape,mask)
         tensor_to_inpaint[:,:,-self.task_dim:]=task
         tensor_to_inpaint=mask*tensor_to_inpaint # ENSURE TO not have extra info TODO note that de igual manera esto va a pasar en el modelo...
-  #      print("actions",tensor_to_inpaint)
-        # add task! TODO
 
         tensor_to_inpaint=tensor_to_inpaint.repeat(self.batch_size_sample,1,1).float()
         mask=mask.repeat(self.batch_size_sample,1,1).float()
