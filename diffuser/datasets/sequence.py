@@ -30,8 +30,8 @@ class SequenceDataset(torch.utils.data.Dataset):
                  normed_keys=[ "observations", 'actions','rewards',"task"],
                  view_keys_dict={"observations":"observation","actions":"actions","rewards":"rewards","task":"desired_goal"}, # the name of the attribute vs the name we want in the dataset.
                  discount=0.99,
-                 exp_returns=True
-                 ): 
+                 exp_returns=False
+                 ):
         
         self.horizon = horizon
         self.max_path_length = max_path_length
@@ -221,9 +221,13 @@ class SequenceDataset(torch.utils.data.Dataset):
             rewards=dict["rewards"]
             horizon=len(rewards)
             rtg_partial=np.sum(rewards*discount_array[:horizon]) # (H)*(H)-> 1 
-            rtg_list.append(np.exp(rtg_partial*norm_factors[horizon]))
+            if exp_returns:
+                rtg_list.append(np.exp(rtg_partial*norm_factors[horizon]))
+            else:
+                rtg_list.append(rtg_partial*norm_factors[horizon])
+
             for rew in rewards:
-                rtg_partial=(rtg_partial-rew[0])/self.discount
+                rtg_partial=(rtg_partial-rew)/self.discount # why rew[0] TODO
                 horizon-=1
                 if exp_returns:
                     rtg_norm=np.exp(rtg_partial*norm_factors[horizon])
