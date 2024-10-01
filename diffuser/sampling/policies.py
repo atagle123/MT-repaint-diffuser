@@ -211,11 +211,11 @@ class Policy_repaint_return_conditioned(Policy):
         else:
             task=torch.from_numpy(provide_task)
 
-        actions_sorted,observations_sorted,rewards_sorted, values=self.inpaint_action(normed_conditions,task,H=self.horizon_sample)
+        actions,observations,rewards, values=self.inpaint_action(normed_conditions,task,H=self.horizon_sample)
 
-        first_action=actions_sorted[0,0] # TODO test this
+        first_action=actions[0,0] # TODO test this
      
-        return(first_action.cpu().numpy(), Trajectories(actions_sorted,observations_sorted,rewards_sorted,task))
+        return(first_action.cpu().numpy(), Trajectories(actions,observations,rewards,task))
 
     
     def inpaint_task(self,normed_conditions,H):
@@ -259,6 +259,6 @@ class Policy_repaint_return_conditioned(Policy):
         actions=unnormed_batch[:,:,self.observation_dim:self.observation_dim+self.action_dim]
         rewards=unnormed_batch[:,:,self.observation_dim+self.action_dim:self.observation_dim+self.action_dim+1]
 
-        actions_sorted,observations_sorted,rewards_sorted, values=sort_by_values(actions, observations, rewards,gamma=self.gamma) # TODO test this... 
+#        actions_sorted,observations_sorted,rewards_sorted, values=sort_by_values(actions, observations, rewards,gamma=self.gamma) # in maze2d this doesnt make sense because the goal is to reach a objective...
 
-        return(actions_sorted,observations_sorted,rewards_sorted, values)
+        return(actions,observations,rewards, "_")
