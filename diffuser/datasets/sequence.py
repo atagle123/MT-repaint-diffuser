@@ -240,7 +240,7 @@ class SequenceDataset(torch.utils.data.Dataset):
      self.__dict__ = d
     
 
-    def make_returns(self): # TODO tiene mas sentido hacerlo usando los indices... 
+    def make_returns(self): # TODO tiene mas sentido hacerlo usando los indices... problema: make returns despues de hacer el dataset sesga a que hayan muchos 0s como rewards
         """
         Function to make returns, it considers the normalized reward to go of the current state of a trajectory.
         Later it creates a field in the episodes dict with returns, and adds returns to the keys to normalize.
@@ -399,7 +399,7 @@ class Maze2d_inpaint_dataset_returns(Maze2d_inpaint_dataset):
 
             self.episodes[ep_id]["returns"]=atleast_2d(returns_array)
 
-        #self.normed_keys.append("returns") no need to norm in this setup
+        self.normed_keys.append("returns") #no need to norm in this setup
 
     def is_optimal_episode(self,state,goal):
         """
@@ -407,7 +407,7 @@ class Maze2d_inpaint_dataset_returns(Maze2d_inpaint_dataset):
         Note that the constraint to be optimal is that the euclidean distance between the goal and the position is less than 0.5m.
         """
         distances = np.linalg.norm(state[:,:2] - goal, axis=1)
-        if distances[-1]<=0.5 or distances[-2]<=0.5:
+        if distances[-1]<=0.5: #or distances[-2]<=0.5:
             return(True)
         else:
             return(False)
