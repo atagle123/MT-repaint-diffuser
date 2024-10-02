@@ -43,7 +43,7 @@ class Normalizer:
             print(f"Getting normalization params for {key} ...")
             concat_episodes_key=np.concatenate(keys_attribute_dict[key]) # all episodes concatenated per key... 
             mean=concat_episodes_key.mean(axis=0)
-            std=concat_episodes_key.std(axis=0)  
+            std=concat_episodes_key.std(axis=0)
             min=concat_episodes_key.min(axis=0)
             max=concat_episodes_key.max(axis=0)
             self.params_dict[key]={"mean":mean,"std":std,"min":min,"max":max}
