@@ -485,7 +485,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                 traj_known, # (B,H,T) same dims as x 
                 mask, # (B,H,T) same dims as x 
                 returns,
-                resample=True,
+                resample=False,
                 resample_iter=10,
                 resample_jump=3,
                 resample_every=50,
@@ -493,7 +493,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                 return_chain=False
                 ):
         """ 
-        Classical DDPM (check this) sampling algorithm with repaint sampling
+        Classical DDPM sampling algorithm with repaint sampling
 
             Parameters:
                 shape:
@@ -536,17 +536,18 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
         if return_chain: chain = torch.stack(chain, dim=1)
         return Sample(x,  chain)
 
+    
     @torch.inference_mode()
-    def conditional_sample(self,
+    def forward(self,
                 traj_known,
                 mask,
                 returns,
                 horizon_sample=None,
-                resample=True,
+                resample=False,
                 resample_iter=10,
                 resample_jump=3,
                 resample_every=50,
-                disable_progess_bar=False,
+                disable_progess_bar=False, 
                 return_chain=False
                 ):
         '''
@@ -569,32 +570,6 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                 resample_every=resample_every,
                 disable_progess_bar=disable_progess_bar, 
                 return_chain=return_chain)
-    
-    @torch.inference_mode()
-    def forward(self,
-                traj_known,
-                mask,
-                returns,
-                horizon_sample=None,
-                resample=True,
-                resample_iter=10,
-                resample_jump=3,
-                resample_every=50,
-                disable_progess_bar=False, 
-                return_chain=False
-                ):
-        
-        return self.conditional_sample(
-                traj_known=traj_known,
-                mask=mask,
-                returns=returns,
-                horizon_sample=horizon_sample,
-                resample=resample,
-                resample_iter=resample_iter,
-                resample_jump=resample_jump,
-                resample_every=resample_every,
-                disable_progess_bar=disable_progess_bar, 
-                return_chain=return_chain)
 
     #------------------------------------------ training ------------------------------------------#
 
@@ -606,9 +581,11 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
 
         x_noisy=x_start*mask+(1-mask)*x_noisy # unmasking first state
 
+        assert x_noisy.shape==x_start.shape
+
         t = t.clone().detach().float().requires_grad_(True)
 
-        pred_epsilon = self.model(x_noisy,t,returns=returns) # TODO maybe pass the mask here... makes more sense.. 
+        pred_epsilon = self.model(x_noisy,t,returns=returns)
 
         assert noise.shape == pred_epsilon.shape
 

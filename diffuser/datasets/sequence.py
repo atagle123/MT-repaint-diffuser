@@ -19,7 +19,7 @@ class SequenceDataset(torch.utils.data.Dataset):
     """
 
     def __init__(self, 
-                 dataset_name='halfcheetah-expert-v0', 
+                 dataset_name="D4RL/pointmaze/umaze-dense-v2", 
                  horizon=64,
                  normalizer="datasets.normalization.GaussianNormalizer", 
                  max_path_length=1000,
@@ -31,6 +31,23 @@ class SequenceDataset(torch.utils.data.Dataset):
                  view_keys_dict={"observations":"observation","actions":"actions","rewards":"rewards","task":"desired_goal"}, # the name of the attribute vs the name we want in the dataset.
                  discount=0.99
                  ):
+        """
+        Initializes the class with the specified parameters.
+
+        Args:
+
+            dataset_name (str): The name of the dataset to be used. Should be downloaded local minari.
+            horizon (int): The horizon for episodes, indicating the maximum number of steps in an episode. Defaults to 64.
+            normalizer (str): The path to the normalizer class to be used for data normalization.
+            max_path_length (int): The maximum length of paths (episodes) to be considered. Defaults to 1000.
+            max_n_episodes (int): The maximum number of episodes to consider. Defaults to 100000.           
+            termination_penalty (float): A penalty applied at the end of episodes to encourage early termination. Defaults to 0.            
+            seed (int or None): Random seed for reproducibility. If None, a random seed will be generated.            
+            use_padding (bool): Whether to use padding in the dataset. Defaults to True.            
+            normed_keys (list of str): A list of keys for which normalization is to be applied. Defaults to ["observations", 'actions', 'rewards', "task"].            
+            view_keys_dict (dict): A mapping from attribute names to the names that should be used in the dataset. Defaults to {"observations": "observation", "actions": "actions", "rewards": "rewards", "task": "desired_goal"}.           
+            discount (float): The discount factor for future rewards, between 0 and 1. Defaults to 0.99.
+        """
         
         self.horizon = horizon
         self.max_path_length = max_path_length
@@ -82,15 +99,20 @@ class SequenceDataset(torch.utils.data.Dataset):
         
     def make_dataset(self,view_keys_dict):
         """
-        Transforms minari dataset to a standard way... 
+        Transforms minari dataset to a general format.
 
-        Format: episodes_dict.keys-> ["observations","actions","rewards","terminations","truncations","total_returns"]
-                episodes_dict.values-> np.array 2d [H,Dim]
+        Args: 
+            view_keys_dict (dict): A mapping from attribute names to the names that should be used in the dataset. Also is all the information to be processed in the dataset.
+        
+        Returns a episodes dict with this format: 
+            episodes_dict.keys-> ["observations","actions","rewards","terminations","truncations","total_returns"]
+            episodes_dict.values-> np.array 2d [H,Dim]
         """ 
         print("Making dataset... ")
 
         episodes_generator = self.minari_dataset.iterate_episodes()
         self.episodes={}
+
         ### generate new dataset in the format ###
         for episode in episodes_generator:
             dict={}
@@ -122,6 +144,15 @@ class SequenceDataset(torch.utils.data.Dataset):
 
 
     def normalize_dataset(self,normed_keys,normalizer):
+        """
+        Function to normalize the dataset
+
+        Args: 
+            normed_keys (list): A list of the keys od the dataset to normalize.
+            normalizer (class instance): instanfe of a normalization class with normalization functions.
+        
+        Returns a episodes dict with normalized fields.
+        """ 
         print("Normalizing dataset... ")
         
         self.normalizer=normalizer(dataset=self.episodes,normed_keys=normed_keys)
@@ -138,6 +169,9 @@ class SequenceDataset(torch.utils.data.Dataset):
 
 
     def get_norm_keys_dim(self):
+        """
+        Function to get a dictionary with the keys and his dim.
+        """
         self.keys_dim_dict={}
         dict=self.episodes[0]
         for key,attribute in dict.items():
@@ -206,7 +240,11 @@ class SequenceDataset(torch.utils.data.Dataset):
      self.__dict__ = d
     
 
-    def make_returns(self):
+    def make_returns(self): # TODO tiene mas sentido hacerlo usando los indices... 
+        """
+        Function to make returns, it considers the normalized reward to go of the current state of a trajectory.
+        Later it creates a field in the episodes dict with returns, and adds returns to the keys to normalize.
+        """
         print("Making returns... ")
         
         discount_array=self.discount ** np.arange(self.max_path_length) # (H)
@@ -235,17 +273,12 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.normed_keys.append("returns")
     
     def calc_norm_factor(self,discount,horizon):
+        """
+        Function to calculate norm factor
+        """
         norm_factor=(1-discount)/(1-discount**(horizon+1))
         return(norm_factor)
 
-
-    def calculate_norm_rtg(self,rewards,horizon,discount,discount_array):
-
-            rtg=np.sum(rewards*discount_array) # (H,1)*(H,1)-> 1
-
-            norm_factor=(1-discount)/(1-discount**(horizon+1))
-            norm_rtg=rtg*norm_factor
-            return(norm_rtg)
 
     def sanity_test(self):
         raise  NotImplementedError
@@ -340,75 +373,10 @@ class Maze2d_inpaint_dataset(SequenceDataset):
         return batch
     
 
-class Maze2d_inpaint_dataset_returns(SequenceDataset):
+class Maze2d_inpaint_dataset_returns(Maze2d_inpaint_dataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
 
-
-    def get_env_attributes(self):
-
-        self.minari_dataset=minari.load_dataset(self.dataset_name)
-        self.minari_dataset.set_seed(seed=self.seed)
-        self.env = self.minari_dataset.recover_environment()
-        action_space=self.env.action_space
-        observation_space = self.env.observation_space["observation"]
-
-        assert self.minari_dataset.total_episodes<= self.max_n_episodes
-
-        self.n_episodes=self.minari_dataset.total_episodes
-
-        if isinstance(action_space, gym.spaces.Discrete):
-            self.action_dim = action_space.n
-
-        elif isinstance(action_space, gym.spaces.Box):
-            self.action_dim = action_space.shape[0]
-
-        self.observation_dim = observation_space.shape[0]
-
-
-    def make_dataset(self,view_keys_dict):
-        """
-        Transforms minari dataset to a standard way... 
-
-        Format: episodes_dict.keys-> ["observations","actions","rewards","terminations","truncations","total_returns"]
-                episodes_dict.values-> np.array 2d [H,Dim]
-        """ 
-        print("Making dataset... ")
-
-        episodes_generator = self.minari_dataset.iterate_episodes()
-        self.episodes={}
-        ### generate new dataset in the format ###
-        for episode in episodes_generator:
-            dict={}
-            for new_name_key,key in view_keys_dict.items():
-                
-                attribute=find_key_in_data(episode,key)
-
-                if attribute is None:
-                    raise KeyError(f" Couldn't find a np.array value for the key {key}")
-
-                attribute_2d=atleast_2d(attribute)
-
-                ###
-                # specific truncation in maze2d dataset... 2 options truncate first element or change desired goal... 
-                ###
-                attribute_2d=attribute_2d[1:,:] # revisado
-
-                if self.use_padding:
-                    attribute=pad(attribute_2d,max_len=self.max_path_length)
-
-                    assert attribute.shape==(self.max_path_length,attribute_2d.shape[-1])
-
-                else:
-                    attribute=pad_min(attribute_2d,min_len=self.horizon)
-
-                if key=="rewards":  
-                    if episode.terminations.any():
-                        episode_lenght=episode.total_timesteps
-                        attribute[episode_lenght-1]+=self.termination_penalty  # o quizas -1 tambien sirve...
-                        
-                dict[new_name_key]=attribute
-            self.episodes[episode.id]=dict
 
     def make_returns(self):
         """
@@ -434,6 +402,10 @@ class Maze2d_inpaint_dataset_returns(SequenceDataset):
         #self.normed_keys.append("returns") no need to norm in this setup
 
     def is_optimal_episode(self,state,goal):
+        """
+        Function to check if a trajectory in maze2d is optimal.
+        Note that the constraint to be optimal is that the euclidean distance between the goal and the position is less than 0.5m.
+        """
         distances = np.linalg.norm(state[:,:2] - goal, axis=1)
         if distances[-1]<=0.5 or distances[-2]<=0.5:
             return(True)

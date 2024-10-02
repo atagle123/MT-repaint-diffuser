@@ -60,6 +60,7 @@ policy_config = utils.Config(
     dataset=dataset,
     gamma=args["gamma"],
     keys_order=("observations","actions","rewards","task"), # TODO maybe this should be an attribute of dataset...
+    resample_diff=128,
     ## sampling kwargs
     batch_size_sample=args["batch_size_sample"],
     horizon_sample = args["horizon_sample"],

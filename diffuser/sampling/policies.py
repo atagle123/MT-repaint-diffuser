@@ -121,13 +121,15 @@ class Policy:
     Policy base class
     """
 
-    def __init__(self, diffusion_model, dataset,gamma, **sample_kwargs):
+    def __init__(self, diffusion_model, dataset,gamma,resample_diff=1, **sample_kwargs):
         self.diffusion_model = diffusion_model
         self.dataset = dataset # dataset is a instance of the class sequence dataset
         self.action_dim = diffusion_model.action_dim
         self.observation_dim = diffusion_model.observation_dim
         self.task_dim=diffusion_model.task_dim
         self.gamma=gamma
+        self.resample_diff=resample_diff
+        self.resample_counter=0
         self.sample_kwargs = sample_kwargs
 
     def __call__(self):
@@ -178,7 +180,7 @@ class Policy:
 
 class Policy_repaint_return_conditioned(Policy):
 
-    def __init__(self, diffusion_model, dataset,gamma,batch_size_sample,keys_order, **sample_kwargs):
+    def __init__(self, diffusion_model, dataset,gamma,batch_size_sample,keys_order,resample_diff=1, **sample_kwargs):
         self.diffusion_model = diffusion_model
         self.dataset = dataset # dataset is a instance of the class sequence dataset
         self.action_dim = diffusion_model.action_dim
@@ -186,6 +188,8 @@ class Policy_repaint_return_conditioned(Policy):
         self.task_dim=diffusion_model.task_dim
         self.gamma=gamma
         self.batch_size_sample=batch_size_sample
+        self.resample_diff=resample_diff
+        self.resample_counter=0
         self.sample_kwargs = sample_kwargs
         self.horizon_sample=sample_kwargs.get("horizon_sample", self.dataset.horizon) # TODO test this... 
         self.keys_order=keys_order
@@ -203,17 +207,29 @@ class Policy_repaint_return_conditioned(Policy):
             df: dataframe with the data
         falta revisar que no inpaint step funcione, el sort tambien y la unnormalizacion tambien. evaluar todo aca.
         """ 
-        conditions=self.get_last_traj_rollout_torch(rollouts)  # conditions of dim 1,K+1,T
-        normed_conditions=self.norm_evertything(conditions,keys_order=self.keys_order) # dim 1,K+1,T # TODO COMO HACER QUE no se normalicen las cosas que no se...maskeadas con 0...
-        if provide_task is None:
-            task=self.inpaint_task(normed_conditions,H=self.horizon_sample)
- #       print(" task",task)
+        if self.resample_counter==0:
+            assert self.resample_diff>0
+            self.resample_counter=self.resample_diff-1
+            conditions=self.get_last_traj_rollout_torch(rollouts)  # conditions of dim 1,K+1,T
+            normed_conditions=self.norm_evertything(conditions,keys_order=self.keys_order) # dim 1,K+1,T # TODO COMO HACER QUE no se normalicen las cosas que no se...maskeadas con 0...
+            if provide_task is None:
+                task=self.inpaint_task(normed_conditions,H=self.horizon_sample)
+    #       print(" task",task)
+            else:
+                task=torch.from_numpy(provide_task)
+
+            actions,observations,rewards, values=self.inpaint_action(normed_conditions,task,H=self.horizon_sample)
         else:
-            task=torch.from_numpy(provide_task)
-
-        actions,observations,rewards, values=self.inpaint_action(normed_conditions,task,H=self.horizon_sample)
-
-        first_action=actions[0,0] # TODO test this
+            self.resample_counter-=1
+            actions=self.actions_plan
+            observations=self.observations_plan
+            rewards=self.rewards_plan
+            task=self.task
+        first_action=actions[0,0,:]
+        self.actions_plan=actions[:,1:,:]
+        self.observations_plan=observations[:,1:,:]
+        self.rewards_plan=rewards[:,1:,:]
+        self.task=task
      
         return(first_action.cpu().numpy(), Trajectories(actions,observations,rewards,task))
 
@@ -259,6 +275,6 @@ class Policy_repaint_return_conditioned(Policy):
         actions=unnormed_batch[:,:,self.observation_dim:self.observation_dim+self.action_dim]
         rewards=unnormed_batch[:,:,self.observation_dim+self.action_dim:self.observation_dim+self.action_dim+1]
 
-        actions,observations,rewards, values=sort_by_values(actions, observations, rewards,gamma=self.gamma) # in maze2d this doesnt make sense because the goal is to reach a objective...
+     #   actions,observations,rewards, values=sort_by_values(actions, observations, rewards,gamma=self.gamma) # in maze2d this doesnt make sense because the goal is to reach a objective...
 
         return(actions,observations,rewards, "_")
