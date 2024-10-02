@@ -29,8 +29,7 @@ class SequenceDataset(torch.utils.data.Dataset):
                  use_padding=True,
                  normed_keys=[ "observations", 'actions','rewards',"task"],
                  view_keys_dict={"observations":"observation","actions":"actions","rewards":"rewards","task":"desired_goal"}, # the name of the attribute vs the name we want in the dataset.
-                 discount=0.99,
-                 exp_returns=False
+                 discount=0.99
                  ):
         
         self.horizon = horizon
@@ -49,7 +48,7 @@ class SequenceDataset(torch.utils.data.Dataset):
         self.make_dataset(view_keys_dict=view_keys_dict)
         self.make_indices(horizon)
 
-        self.make_returns(exp_returns=exp_returns)
+        self.make_returns()
 
         self.normalize_dataset(normed_keys=self.normed_keys,normalizer=import_class(normalizer))
         self.get_norm_keys_dim()
@@ -207,35 +206,28 @@ class SequenceDataset(torch.utils.data.Dataset):
      self.__dict__ = d
     
 
-    def make_returns(self,exp_returns):
+    def make_returns(self):
         print("Making returns... ")
         
         discount_array=self.discount ** np.arange(self.max_path_length) # (H)
         discount_array=atleast_2d(discount_array)
-        norm_factors=[]
-        for horizon in range(self.max_path_length):
-            norm_factors.append(self.calc_norm_factor(self.discount,horizon)) # list with list[horizon]-> norm_factor(horizon)
+
+        norm_factors=[self.calc_norm_factor(self.discount,horizon) for horizon in range(self.max_path_length)] # ordered list with list[horizon]-> norm_factor(horizon)
 
         for ep_id, dict in self.episodes.items():
             rtg_list=[]
             rewards=dict["rewards"]
-            horizon=len(rewards)
-            rtg_partial=np.sum(rewards*discount_array[:horizon]) # (H)*(H)-> 1 
-            if exp_returns:
-                rtg_list.append(np.exp(rtg_partial*norm_factors[horizon]))
-            else:
-                rtg_list.append(rtg_partial*norm_factors[horizon])
+            horizon=len(rewards)-1  # the -1 is correct
+            rtg_partial=np.sum(rewards*discount_array[:(horizon+1)]) # (H)*(H)-> 1
+            rtg_list.append(rtg_partial*norm_factors[horizon])
 
             for rew in rewards:
-                rtg_partial=(rtg_partial-rew)/self.discount # why rew[0] TODO
+                rtg_partial=(rtg_partial-rew[0])/self.discount 
                 horizon-=1
-                if exp_returns:
-                    rtg_norm=np.exp(rtg_partial*norm_factors[horizon])
-                else:
-                    rtg_norm=rtg_partial*norm_factors[horizon]
-                rtg_list.append(rtg_norm)
+
+                rtg_list.append(rtg_partial*norm_factors[horizon])
             
-            returns_array=np.array(rtg_list[:-1],dtype=np.float32)
+            returns_array=np.array(rtg_list[:-1],dtype=np.float32) 
             assert returns_array.shape[0]==rewards.shape[0]
 
             self.episodes[ep_id]["returns"]=atleast_2d(returns_array)
@@ -400,7 +392,7 @@ class Maze2d_inpaint_dataset_returns(SequenceDataset):
                 ###
                 # specific truncation in maze2d dataset... 2 options truncate first element or change desired goal... 
                 ###
-                attribute_2d=attribute_2d[1:,:]
+                attribute_2d=attribute_2d[1:,:] # revisado
 
                 if self.use_padding:
                     attribute=pad(attribute_2d,max_len=self.max_path_length)
@@ -417,6 +409,36 @@ class Maze2d_inpaint_dataset_returns(SequenceDataset):
                         
                 dict[new_name_key]=attribute
             self.episodes[episode.id]=dict
+
+    def make_returns(self):
+        """
+        Specific return making for maze2d and goal reaching targets.
+        """
+        print("Making returns... ")
+        
+        discount_array=self.discount ** np.arange(self.max_path_length) # (H)
+        discount_array=atleast_2d(discount_array)
+
+        for ep_id, dict in self.episodes.items():
+            rewards=dict["rewards"]
+
+            horizon=len(rewards)
+            optimal=self.is_optimal_episode(dict["observation"],dict["task"]) # TODO check this...
+            #int(optimal)*discount_array[horizon]
+            returns_array = np.full((horizon, 1), int(optimal),dtype=np.float32)
+
+            assert returns_array.shape[0]==rewards.shape[0]
+
+            self.episodes[ep_id]["returns"]=atleast_2d(returns_array)
+
+        self.normed_keys.append("returns")
+
+    def is_optimal_episode(self,state,goal):
+        distances = np.linalg.norm(state[:,:2] - goal, axis=1)
+        if distances[-1]<=0.5 or distances[-2]<=0.5:
+            return(True)
+        else:
+            return(False)
 
 
     def __getitem__(self, idx):

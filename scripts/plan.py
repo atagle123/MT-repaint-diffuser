@@ -15,7 +15,7 @@ from diffuser.utils.rollouts import TrajectoryBuffer
 #-----------------------------------------------------------------------------#
 
 dataset="maze2d"
-exp_name="gaussian_diff_returns_condition"
+exp_name="gaussian_diff_returns_condition_H_128"
 
 args=load_experiment_params(f"logs/configs/{dataset}/{exp_name}/configs_diffusion.txt")
 
@@ -119,7 +119,7 @@ for episode in range(100):
         # clave que el max episode lenght sea el mismo que el con el que se recolecto el dataset, para el score, si no se tienen scores diferentes.
         
         print(
-            f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | I_task: {samples.task:.2f} | R_task: {observation["desired_goal"]}',
+            f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | I_task: {samples.task} | R_task: {observation["desired_goal"]}',
             #f'values: {samples.values} | scale: {args["scale"]}',
             flush=True,)
 

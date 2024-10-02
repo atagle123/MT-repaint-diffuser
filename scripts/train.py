@@ -14,7 +14,7 @@ import wandb
 #-----------------------------------------------------------------------------#
 
 dataset="maze2d"
-exp_name="gaussian_diff_returns_condition"
+exp_name="gaussian_diff_returns_condition_H_128"
 
 args=load_experiment_params(f"logs/configs/{dataset}/{exp_name}/configs_diffusion.txt")
 
@@ -115,7 +115,7 @@ trainer_config = Config(
 )
 
 trainer = trainer_config(diffusion, dataset)
-trainer.load(epoch=80000)
+#trainer.load(epoch=80000)
 
 #-----------------------------------------------------------------------------#
 #------------------------ test forward & backward pass -----------------------#

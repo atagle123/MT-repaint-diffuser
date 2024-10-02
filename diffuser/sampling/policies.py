@@ -259,6 +259,6 @@ class Policy_repaint_return_conditioned(Policy):
         actions=unnormed_batch[:,:,self.observation_dim:self.observation_dim+self.action_dim]
         rewards=unnormed_batch[:,:,self.observation_dim+self.action_dim:self.observation_dim+self.action_dim+1]
 
-#        actions_sorted,observations_sorted,rewards_sorted, values=sort_by_values(actions, observations, rewards,gamma=self.gamma) # in maze2d this doesnt make sense because the goal is to reach a objective...
+        actions,observations,rewards, values=sort_by_values(actions, observations, rewards,gamma=self.gamma) # in maze2d this doesnt make sense because the goal is to reach a objective...
 
         return(actions,observations,rewards, "_")
