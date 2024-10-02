@@ -431,7 +431,7 @@ class Maze2d_inpaint_dataset_returns(SequenceDataset):
 
             self.episodes[ep_id]["returns"]=atleast_2d(returns_array)
 
-        self.normed_keys.append("returns")
+        #self.normed_keys.append("returns") no need to norm in this setup
 
     def is_optimal_episode(self,state,goal):
         distances = np.linalg.norm(state[:,:2] - goal, axis=1)
