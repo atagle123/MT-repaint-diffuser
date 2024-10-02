@@ -7,6 +7,13 @@ from diffuser.utils.arrays import atleast_2d
 #-----------------------------------------------------------------------------#
 
 class Normalizer:
+    """
+    Base normalizer class
+
+    Args:
+        dataset (dict): dict with episodes, episode_id as keys and with dict of attributes as values
+        normed_keys (list): Keys to normalize
+    """
     def __init__(self,
                  dataset,
                  normed_keys
@@ -16,21 +23,25 @@ class Normalizer:
 
 
     def make_params(self,normed_keys=['observations', 'actions']):
+        """
+        Funcion to make the parameters that will be used in normalization.
+        """
 
-        keys_attribute_dict= {key: [] for key in normed_keys} # cambiar nombre
-        
-        ### Calculate means and std and normalize dataset ###
+        keys_attribute_dict= {key: [] for key in normed_keys}
+
+        ### make a list of episodes by key ### 
         for ep_id, dict in self.dataset.items():
             for key,attribute in dict.items():
                 attribute=atleast_2d(attribute)
 
                 if key in normed_keys:
                     keys_attribute_dict[key].append(attribute)
-
+        
+        ### get normed keys ###
         self.params_dict={}
         for key in normed_keys:
             print(f"Getting normalization params for {key} ...")
-            concat_episodes_key=np.concatenate(keys_attribute_dict[key]) # all episodes concatenated
+            concat_episodes_key=np.concatenate(keys_attribute_dict[key]) # all episodes concatenated per key... 
             mean=concat_episodes_key.mean(axis=0)
             std=concat_episodes_key.std(axis=0)  
             min=concat_episodes_key.min(axis=0)
@@ -45,6 +56,16 @@ class Normalizer:
 
 
     def normalize(self,unnormed_data, key):
+        """
+        Function to normalize unnormed data.
+        
+        Args: 
+            unnormed_data (Torch.tensor or np.array): Data to norm
+            key: Field of wich the data belongs to.
+
+        Returns:
+            normalized_data (Torch.tensor or np.array)
+        """
         if isinstance(unnormed_data, np.ndarray):
             return self.normalize_numpy(unnormed_data, key)
         elif isinstance(unnormed_data, torch.Tensor):
@@ -54,6 +75,16 @@ class Normalizer:
 
 
     def unnormalize(self,normed_data, key):
+        """
+        Function to unnormalize normed data.
+        
+        Args: 
+            normed_data (Torch.tensor or np.array): Data to unnorm
+            key: Field of wich the data belongs to.
+
+        Returns:
+            unnormalized_data (Torch.tensor or np.array)
+        """
         if isinstance(normed_data, np.ndarray):
             return self.unnormalize_numpy(normed_data,key)
         elif isinstance(normed_data, torch.Tensor):
