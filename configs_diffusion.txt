@@ -1,0 +1,83 @@
+#-----------------------------------------------------------------------------#
+#---------------------------------- dataset ----------------------------------#
+#-----------------------------------------------------------------------------#
+
+dataset=datasets.sequence.Maze2d_inpaint_dataset_returns
+dataset_name="D4RL/pointmaze/umaze-dense-v2"
+horizon=128
+normalizer="datasets.normalization.LimitsNormalizer"
+max_path_length=1000
+max_n_episodes=100000
+termination_penalty=0
+use_padding=False
+view_keys_dict={"observations":"observation","actions":"actions","rewards":"rewards","task":"desired_goal"}
+normed_keys=[ "observations", 'actions','rewards',"task"]
+discount=0.99
+#-----------------------------------------------------------------------------#
+#---------------------------------- model ------------------------------------#
+#-----------------------------------------------------------------------------#
+
+model=models.temporal.TemporalUnet_returns
+dim=32
+dim_mults=(1, 2, 4, 8)
+attention=True
+returns_condition=True
+condition_dropout=0.2
+#-----------------------------------------------------------------------------#
+#---------------------------------- diffusion --------------------------------#
+#-----------------------------------------------------------------------------#
+
+diffusion_model=models.diffusion.GaussianDiffusion_repaint
+n_timesteps=20
+loss_type='l2'
+clip_denoised=True
+action_weight=10
+loss_discount=1.0
+
+#-----------------------------------------------------------------------------#
+#---------------------------------- training ---------------------------------#
+#-----------------------------------------------------------------------------#
+
+## training
+n_steps_per_epoch= 10000
+n_train_steps= 1e5
+batch_size= 32
+learning_rate= 2e-4
+gradient_accumulate_every= 2
+ema_decay= 0.995
+save_freq= 20000
+sample_freq= 20000
+n_saves= 5
+seed= 123
+wandb_log=False
+
+
+
+## serialization
+logbase="logs/pretrained"
+
+
+#-----------------------------------------------------------------------------#
+#---------------------------------- plan -------------------------------------#
+#-----------------------------------------------------------------------------#
+
+
+
+
+max_episode_length= 250
+batch_size_sample = 64
+gamma=0.99
+
+## diffusion model
+horizon_sample = 128
+n_diffusion_steps_sample = 20
+resample=False
+resample_iter = 10
+resample_jump = 3
+resample_every = 5
+disable_progess_bar = False, 
+return_chain = False
+
+## wandb
+
+wandb_log = False
