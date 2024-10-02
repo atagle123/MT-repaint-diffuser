@@ -423,7 +423,7 @@ class Maze2d_inpaint_dataset_returns(SequenceDataset):
             rewards=dict["rewards"]
 
             horizon=len(rewards)
-            optimal=self.is_optimal_episode(dict["observation"],dict["task"]) # TODO check this...
+            optimal=self.is_optimal_episode(dict["observations"],dict["task"]) # TODO check this...
             #int(optimal)*discount_array[horizon]
             returns_array = np.full((horizon, 1), int(optimal),dtype=np.float32)
 

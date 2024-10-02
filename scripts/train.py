@@ -49,8 +49,8 @@ dataset_config = Config(
     use_padding=args["use_padding"],
     normed_keys=args["normed_keys"],
     view_keys_dict=args["view_keys_dict"],
-    discount=args["discount"],
-    exp_returns= args["exp_returns"])
+    discount=args["discount"]
+    )
 
 dataset = dataset_config()
 observation_dim = dataset.observation_dim
