@@ -49,23 +49,28 @@ class TrajectoryBuffer:
         self.current_trajectory = None
 
 
-    def rollouts_to_numpy(self,index=-1):
+    def rollouts_to_numpy(self,index="current"):
         """
         Function to get the rollouts to numpy
         
         Args:
-            index (int): index of the trajectory to select (-1 is the last) if there are no complete trajectory the current trajectory is passed.
+            index (int or "current"): index of the trajectory to select (-1 is the last) if "current",  the current trajectory is passed.
 
         Returns:
             Episode (named tuple): named tuple containing arrays of the fields of the trajectory with the arrays with atleast 2 dims (H,T)
             
         """
-        try:
+        if isinstance(index, int):
             trajectory=self.trajectories[index]
-        except:
+
+        elif index=="current":
             trajectory=self.current_trajectory
+            
+        else:
+            raise NameError
 
         states_array=np.stack(trajectory.states, axis=0) # H+1, state_dim
+
         try:
             actions_array=np.stack(trajectory.actions, axis=0) # H, action_dim
             rewards_array=np.stack(trajectory.rewards, axis=0) # H, 1
