@@ -128,7 +128,7 @@ report_parameters(model)
 
 print('Testing forward...', end=' ', flush=True)
 batch = batchify(dataset[0])
-loss = diffusion.loss(*batch)
+loss,infos = diffusion.loss(*batch)
 loss.backward()
 print('✓')
 
