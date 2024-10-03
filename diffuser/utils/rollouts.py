@@ -2,6 +2,10 @@ from dataclasses import dataclass, field
 import numpy as np
 import pickle
 from typing import List, Any
+from collections import namedtuple
+from diffuser.utils.arrays import atleast_2d
+
+Episode = namedtuple('episode',["states", "actions", "rewards", "total_reward", "dones"])
 
 @dataclass
 class Trajectory:
@@ -46,6 +50,16 @@ class TrajectoryBuffer:
 
 
     def rollouts_to_numpy(self,index=-1):
+        """
+        Function to get the rollouts to numpy
+        
+        Args:
+            index (int): index of the trajectory to select (-1 is the last) if there are no complete trajectory the current trajectory is passed.
+
+        Returns:
+            Episode (named tuple): named tuple containing arrays of the fields of the trajectory with the arrays with atleast 2 dims (H,T)
+            
+        """
         try:
             trajectory=self.trajectories[index]
         except:
@@ -64,7 +78,13 @@ class TrajectoryBuffer:
             total_reward_array=np.zeros((1,))
             dones_array=np.zeros((1,))
 
-        return(states_array,actions_array,rewards_array,total_reward_array,dones_array) # TODO maybe use a named tuple 
+        states_array=atleast_2d(states_array) # ensure that this arrays are at least 2d... 
+        actions_array=atleast_2d(actions_array) 
+        rewards_array=atleast_2d(rewards_array) 
+        total_reward_array=atleast_2d(total_reward_array)
+        dones_array=atleast_2d(dones_array)
+
+        return(Episode(states_array,actions_array,rewards_array,total_reward_array,dones_array))
 
     def save_trajectories(self, filepath: str):
         with open(filepath, 'wb') as f:
