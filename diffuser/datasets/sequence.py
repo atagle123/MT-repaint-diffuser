@@ -369,6 +369,22 @@ class Maze2d_inpaint_dataset(SequenceDataset):
 
         self.normed_keys.append("returns")
 
+        self.change_task_maze() # only for maze2d
+
+    def change_task_maze(self):
+        for ep_id,episode_dict in self.episodes.items():
+            old_task_array=episode_dict["task"]
+            H=task_array.shape[0]
+
+            new_task=episode_dict["observations"][-1,:2] # last observation
+            task_array=np.tile(new_task, H)
+
+            assert task_array.shape==old_task_array.shape
+
+            episode_dict["task"]=task_array # TODO check.. 
+
+
+
 
     def __getitem__(self, idx):
         ep_id, start, end = self.indices[idx]
