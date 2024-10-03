@@ -414,7 +414,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
 
         # always conditioning on s0
         loss_weights[0, :self.observation_dim] = 0
-
+        print(loss_weights)
         return loss_weights.to(device="cuda").unsqueeze(0) # (1,H,T) TODO fix device... 
 
     def get_first_state_mask(self):

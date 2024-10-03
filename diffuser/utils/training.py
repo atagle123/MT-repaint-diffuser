@@ -103,7 +103,7 @@ class Trainer(object):
                 batch = next(self.dataloader)
                 batch = batch_to_device(batch)  # batch to device # check this... # TODO maybe it can perform quicly 
 
-                loss = self.model.loss(*batch)
+                loss,infos = self.model.loss(*batch)
                 loss = loss / self.gradient_accumulate_every
                 loss.backward()
 
@@ -118,8 +118,9 @@ class Trainer(object):
                 self.save(label)
 
             if self.step % self.log_freq == 0:
+                infos_str = ' | '.join([f'{key}: {val:8.5f}' for key, val in infos.items()])
                 train_time=timer()
-                print(f'{self.step}: {loss:8.4f} | t: {train_time:8.4f}', flush=True)
+                print(f'{self.step}: {loss:8.4f} | {infos_str} | t: {train_time:8.4f}', flush=True)
 
                 if self.wandb_log:
                     metrics={}

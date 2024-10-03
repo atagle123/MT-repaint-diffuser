@@ -155,8 +155,13 @@ class WeightedLoss(nn.Module):
                 [ batch_size x horizon x transition_dim ]
         '''
         loss = self._loss(pred, targ)  # (B,H,T)
+       # print((loss * loss_weights).shape)
+       # print("loss:",loss)
+       # print("loss we:",loss_weights)
+       # print("mult: ",(loss * loss_weights))
         weighted_loss = (loss * loss_weights).mean() # (B,H,T)->(1) 
-        return weighted_loss
+        a0_loss = (loss[:, 0, 4:6]).mean() # TODO change dims
+        return weighted_loss, {"a0_loss": a0_loss}
 
 
 class WeightedL1(WeightedLoss):
