@@ -158,12 +158,12 @@ class Policy:
             previous_dim=current_dim
         return(trajectory)
     
-    def get_last_traj_rollout_torch(self,rollouts): # TODO maybe win time using the same policy class to not construct the torch rollout every time... 
+    def get_last_traj_rollout_torch(self,rollouts): 
         # K is the known history... 
-        states_array,actions_array,rewards_array,total_reward_array,dones_array=rollouts.rollouts_to_numpy(index=-1)
-        states_array=atleast_2d(states_array) # ensure that this arrays are at least 2d... 
-        actions_array=atleast_2d(actions_array) 
-        rewards_array=atleast_2d(rewards_array) 
+        trajectory=rollouts.rollouts_to_numpy(index="current")
+        actions_array=trajectory.actions
+        states_array=trajectory.states
+        rewards_array=trajectory.rewards
 
 
         actions_array=expand_array(actions_array,H=states_array.shape[0]) # ensure that this arrays has the same dims of states,fill with zeros...  K+1,A
