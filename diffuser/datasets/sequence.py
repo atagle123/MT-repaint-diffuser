@@ -347,42 +347,50 @@ class Maze2d_inpaint_dataset(SequenceDataset):
                 ###
                 attribute_2d=attribute_2d[1:,:]
 
-                if self.use_padding:
+                if self.use_padding: # TODO check this... and order
                     attribute=pad(attribute_2d,max_len=self.max_path_length)
 
                     assert attribute.shape==(self.max_path_length,attribute_2d.shape[-1])
 
+                    attribute_2d=attribute
 
 
-                if key=="rewards":  
+                if key=="rewards":
+                    ### change rewards ###
+                    current=episode.observations["observation"][:,:2]
+                    goal=episode.observations["desired_goal"]
+                    distance=np.linalg.norm(current-goal,axis=1)
+                    distance=distance[1:] # truncated
+
+                    new_rewards=np.exp(-distance)
+                    assert new_rewards.shape==attribute_2d.shape
+
+                    attribute_2d=new_rewards
+                    ######################
                     if episode.terminations.any():
                         episode_lenght=episode.total_timesteps
-                        attribute[episode_lenght-1]+=self.termination_penalty  # o quizas -1 tambien sirve...
+                        attribute_2d[episode_lenght-1]+=self.termination_penalty  # o quizas -1 tambien sirve...
+
                     
-                    returns_array=self.make_returns(rewards=attribute,discount=self.discount)#,episode=episode) # make returns per episode before use pad min
+                    returns_array=self.make_returns(rewards=attribute_2d,discount=self.discount)#,episode=episode) # make returns per episode before use pad min
                     dict["returns"]=atleast_2d(returns_array)
 
                 attribute=pad_min(attribute_2d,min_len=self.horizon) # set the minimum lenght of a trajectory
+
+                if new_name_key=="task": # only for maze2d...
+                    new_task=episode.observations["observation"][-1,:2] # last observation
+                    H=attribute.shape[0] # goal is setted in all the trajectory including in the filled values with the pad min function
+
+                    task_array=np.tile(new_task, (H,1))
+                    task_array_2d=atleast_2d(task_array)
+                    assert task_array_2d.shape==attribute.shape
+
+                    attribute=task_array_2d
 
                 dict[new_name_key]=attribute
             self.episodes[episode.id]=dict
 
         self.normed_keys.append("returns")
-
-        self.change_task_maze() # only for maze2d
-
-    def change_task_maze(self):
-        for ep_id,episode_dict in self.episodes.items():
-            old_task_array=episode_dict["task"]
-            H=old_task_array.shape[0]
-
-            new_task=episode_dict["observations"][-1,:2] # last observation
-            task_array=np.tile(new_task, (H,1))
-            assert task_array.shape==old_task_array.shape
-
-            episode_dict["task"]=task_array # TODO check.. 
-
-
 
 
     def __getitem__(self, idx):
