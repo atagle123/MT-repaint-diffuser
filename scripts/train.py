@@ -29,7 +29,10 @@ current_dir=os.getcwd()
 savepath=os.path.join(current_dir,args["logbase"], args["dataset_name"],"diffusion", exp_name)
 os.makedirs(savepath, exist_ok=True)
 
-wandb_log=False
+wandb_log=True
+save_freq= 20000
+sample_freq= 20000
+n_saves= 5
 
 #-----------------------------------------------------------------------------#
 #---------------------------------- dataset ----------------------------------#
@@ -107,9 +110,9 @@ trainer_config = Config(
     train_lr=args["learning_rate"],
     gradient_accumulate_every=args["gradient_accumulate_every"],
     ema_decay=args["ema_decay"],
-    sample_freq=args["sample_freq"],
-    save_freq=args["save_freq"],
-    label_freq=int(args["n_train_steps"] // args["n_saves"]),
+    sample_freq=sample_freq,
+    save_freq=save_freq,
+    label_freq=int(args["n_train_steps"] // n_saves),
     results_folder=savepath,
     wandb_log=wandb_log
 )
@@ -138,16 +141,15 @@ n_epochs = int(args["n_train_steps"] // args["n_steps_per_epoch"])
 
 if wandb_log:
     wandb.init(
-        project='MT_inpainting_diffuser',
+        project='MT_repaint_diffuser_maze2d',
         name=exp_name,
         monitor_gym=True,
-        save_code=True)
-    
-    wandb.config=args
-
+        save_code=True,
+        config=args
+        )
 
 for i in range(n_epochs):
     print(f'Epoch {i} / {n_epochs} | {savepath}')
     trainer.train(n_train_steps=args["n_steps_per_epoch"])
 
-wandb.finish()
+if wandb_log: wandb.finish()
