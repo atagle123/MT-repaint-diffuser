@@ -426,13 +426,13 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
     #------------------------------------------ sampling ------------------------------------------#
 
     #@torch.enable_grad()
-    def p_mean_variance(self,x,t,returns):
+    def p_mean_variance(self,x,t,returns,guidance_scale=1.2):
 
         t=t.clone().float().detach()
         if returns is not None:
             epsilon_cond = self.model(x, t, returns, use_dropout=False) # TODO this or pass 2 batches??
             epsilon_uncond = self.model(x, t, returns, force_dropout=True)
-            epsilon = epsilon_uncond + 1.2*(epsilon_cond - epsilon_uncond) # TODO see 2 hiperparams guidance and temperature sampling... 
+            epsilon = epsilon_uncond + guidance_scale*(epsilon_cond - epsilon_uncond)
         else:
             returns = torch.zeros(x.shape[0], 1, device=x.device)
             epsilon = self.model(x, t, returns, force_dropout=True)
@@ -452,7 +452,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
 
     
     @torch.inference_mode()
-    def p_sample(self, x, t, traj_known, mask,returns):
+    def p_sample(self, x, t, traj_known, mask,returns,guidance_scale,temperature=0.5):
         b, *_, device = *x.shape, x.device
 
         if mask is not None:
@@ -468,9 +468,9 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
 
         batched_time = torch.full((b,), t, device=device, dtype=torch.long)
 
-        model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=batched_time,returns=returns)
+        model_mean, _, model_log_variance = self.p_mean_variance(x=x, t=batched_time,returns=returns,guidance_scale=guidance_scale)
 
-        noise = torch.randn_like(x) if t > 0 else 0. # no noise if t == 0
+        noise = temperature*torch.randn_like(x) if t > 0 else 0. # no noise if t == 0
         x_pred = model_mean + (0.5 * model_log_variance).exp() * noise
 
         if t==0 and mask is not None:
@@ -485,6 +485,8 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                 traj_known, # (B,H,T) same dims as x 
                 mask, # (B,H,T) same dims as x 
                 returns,
+                guidance_scale=1.2,
+                temperature=0.5,
                 resample=True,
                 resample_iter=10,
                 resample_jump=3,
@@ -518,7 +520,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
         chain = [x] if return_chain else None
 
         for t in tqdm(reversed(range(0, self.n_timesteps)), desc = 'sampling loop time step', total = self.n_timesteps,disable=disable_progess_bar):
-            x = self.p_sample(x=x, t=t, traj_known=traj_known, mask=mask,returns=returns)
+            x = self.p_sample(x=x, t=t, traj_known=traj_known, mask=mask,returns=returns,guidance_scale=guidance_scale,temperature=temperature)
 
             # Resampling loop: line 9 of Algorithm 1 in https://arxiv.org/pdf/2201.09865
             if resample is True and (t > 0) and (t % resample_every == 0 or t == 1) and mask is not None:
@@ -528,7 +530,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                     beta = self.betas[t]
                     x = torch.sqrt(1 - beta) * x + torch.sqrt(beta) * torch.randn_like(x)
                     for j in reversed(range(0, resample_jump)):
-                        x = self.p_sample(x=x, t=t, traj_known=traj_known, mask=mask,returns=returns)
+                        x = self.p_sample(x=x, t=t, traj_known=traj_known, mask=mask,returns=returns,guidance_scale=guidance_scale,temperature=temperature)
 
             if return_chain: chain.append(x)
 
@@ -542,6 +544,8 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                 traj_known,
                 mask,
                 returns,
+                guidance_scale=1.2,
+                temperature=0.5,
                 horizon_sample=None,
                 resample=True,
                 resample_iter=10,
@@ -564,6 +568,8 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                 traj_known=traj_known,
                 mask=mask,
                 returns=returns,
+                guidance_scale=guidance_scale,
+                temperature=temperature,
                 resample=resample,
                 resample_iter=resample_iter,
                 resample_jump=resample_jump,
