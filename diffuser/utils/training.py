@@ -123,7 +123,7 @@ class Trainer(object):
                 print(f'{self.step}: {loss:8.4f} | {infos_str} | t: {train_time:8.4f}', flush=True)
 
                 if self.wandb_log:
-                    metrics={}
+                    metrics=infos
                     metrics["loss"]=loss
                     metrics["time"]=train_time
                     wandb.log(metrics,step=self.step)
