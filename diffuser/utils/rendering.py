@@ -109,7 +109,7 @@ def plot2img(fig, remove_margins=True):
 
 
 
-def render_maze_2d(env,observations,goal_state):
+def render_maze_2d(env,observations,goal_state,fig_name="maze2d_plot"):
     """    MAZE_BOUNDS = {
     'maze2d-umaze-v1': (0, 5, 0, 5),
     'maze2d-medium-v1': (0, 8, 0, 8),
@@ -146,4 +146,4 @@ def render_maze_2d(env,observations,goal_state):
     plt.plot(observations[:,1], observations[:,0], c='black', zorder=11)
     plt.scatter(observations[:,1], observations[:,0], c=colors, zorder=10)
     plt.title("test")
-    plt.savefig('my_plot.png', dpi=300) #   TODO : save path
+    plt.savefig(f'{fig_name}.png', dpi=300) #   TODO : save path

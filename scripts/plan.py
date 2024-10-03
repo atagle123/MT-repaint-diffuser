@@ -60,11 +60,11 @@ policy_config = utils.Config(
     dataset=dataset,
     gamma=args["gamma"],
     keys_order=("observations","actions","rewards","task"), # TODO maybe this should be an attribute of dataset...
-    resample_diff=128,
+    resample_diff=125,
     ## sampling kwargs
     batch_size_sample=args["batch_size_sample"],
     horizon_sample = args["horizon_sample"],
-    return_chain=args["return_chain"]
+    return_chain=False
 )
 
 policy = policy_config()
@@ -73,7 +73,7 @@ policy = policy_config()
 #--------------------------------- main loop ---------------------------------#
 #-----------------------------------------------------------------------------#
  
-wandb_log=args["wandb_log"]
+wandb_log=False
 
 if wandb_log:
     wandb.init(
@@ -127,6 +127,7 @@ for episode in range(100):
         rollouts.add_transition(observation["observation"], action, reward, terminated,total_reward,info) # maze2d
 
         if terminated or info["success"]==True or t==args["max_episode_length"]-1: # maze2d
+            policy.resample_counter=0
             rollouts.end_trajectory()
             rollouts.save_trajectories(filepath=os.path.join(savepath,f'rollout_{seed}.pkl'))
             save_video(env,seed,savepath,suffix=episode,wandb_log=wandb_log)

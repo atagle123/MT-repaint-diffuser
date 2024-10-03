@@ -485,7 +485,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                 traj_known, # (B,H,T) same dims as x 
                 mask, # (B,H,T) same dims as x 
                 returns,
-                resample=False,
+                resample=True,
                 resample_iter=10,
                 resample_jump=3,
                 resample_every=50,
@@ -543,7 +543,7 @@ class GaussianDiffusion_repaint(GaussianDiffusion):
                 mask,
                 returns,
                 horizon_sample=None,
-                resample=False,
+                resample=True,
                 resample_iter=10,
                 resample_jump=3,
                 resample_every=50,
