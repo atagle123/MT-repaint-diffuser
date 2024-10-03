@@ -65,7 +65,7 @@ class TrajectoryBuffer:
 
         elif index=="current":
             trajectory=self.current_trajectory
-            
+
         else:
             raise NameError
 
@@ -78,14 +78,14 @@ class TrajectoryBuffer:
             dones_array=np.stack(trajectory.dones, axis=0) # H, 
 
         except: # this exception happends in the first iteration... 
-            actions_array=np.zeros((1,self.action_dim))
-            rewards_array=np.zeros((1,1))
-            total_reward_array=np.zeros((1,))
-            dones_array=np.zeros((1,))
+            actions_array=np.empty((0,self.action_dim))
+            rewards_array=np.empty((0,1))
+            total_reward_array=np.empty((0,))
+            dones_array=np.empty((0,))
 
         states_array=atleast_2d(states_array) # ensure that this arrays are at least 2d... 
         actions_array=atleast_2d(actions_array) 
-        rewards_array=atleast_2d(rewards_array) 
+        rewards_array=atleast_2d(rewards_array)
         total_reward_array=atleast_2d(total_reward_array)
         dones_array=atleast_2d(dones_array)
 
