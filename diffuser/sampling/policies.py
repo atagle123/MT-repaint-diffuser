@@ -2,118 +2,9 @@ from collections import namedtuple
 import torch
 import numpy as np
 from diffuser.utils.arrays import atleast_2d
+from .sampling_utils import get_mask_from_tensor,expand_array,expand_tensor
+
 Trajectories = namedtuple('Trajectories', 'actions observations rewards task')
-
-
-def expand_array(array, H, max_K=None):
-    """
-    Function to expand a NumPy array
-    """
-    max_K = max_K or H
-
-    K, T = array.shape
-    if max_K < K:
-        # Create an array of zeros with shape (H - max_K, T)
-        zeros = np.zeros((H - max_K, T), dtype=array.dtype)
-        # Concatenate the last max_K rows of the original array with the zeros
-        expanded_array = np.vstack((array[-max_K:, :], zeros))
-    else:
-        # Create an array of zeros with shape (H - K, T)
-        zeros = np.zeros((H - K, T), dtype=array.dtype)
-        # Concatenate the original array with the zeros
-        expanded_array = np.vstack((array, zeros))
-    
-    return expanded_array
-
-
-def expand_tensor(tensor, H, max_K=None):
-    """
-    Function to expand a tensor
-    """
-    max_K= max_K or H
-
-    B, K, T = tensor.shape
-    if max_K < K:
-        zeros = torch.zeros(B,H - max_K, T, dtype=tensor.dtype, device=tensor.device)
-                # Concatenar el tensor original con el tensor de ceros
-        expanded_tensor = torch.cat((tensor[:,-max_K:,:], zeros), dim=1)
-        
-    else:
-        # Crear un tensor de ceros con la forma (H-K, T)
-        zeros = torch.zeros(B, H - K, T, dtype=tensor.dtype, device=tensor.device)
-        # Concatenar el tensor original con el tensor de ceros
-        expanded_tensor = torch.cat((tensor, zeros), dim=1)
-    
-    return expanded_tensor
-
-def get_mask_from_tensor(tensor, H,observation_dim,max_K=None):
-    """
-    Function to get mask from a tensor
-    """
-    max_K= max_K or H
-    #assert max_K>0
-    B, K, T = tensor.shape
-    ones = torch.ones(B, K, T, dtype=tensor.dtype, device=tensor.device)
-
-    if max_K < K:
-        zeros = torch.zeros(B, H - max_K+1, T, dtype=tensor.dtype, device=tensor.device)
-                # Concatenar el tensor original con el tensor de ceros
-        mask = torch.cat((ones[:,:(max_K-1),:], zeros), dim=1) # TODO REVISAR
-        mask[:,max_K-1,:observation_dim]=1 # unmask the first state...
-        
-    else:
-        # Crear un tensor de ceros con la forma (H-K, T)
-        zeros = torch.zeros(B, H - K+1, T, dtype=tensor.dtype, device=tensor.device) # revisar
-        # Concatenar el tensor original con el tensor de ceros
-        mask = torch.cat((ones[:,:(K-1),:], zeros), dim=1)
-        mask[:,K-1,:observation_dim]=1 # TODO revisar
-    
-    assert mask.shape==(B,H,T)
-
-    return mask
-
-
-def compute_reward_to_go_batch(rewards_batch, gamma):
-    """
-    Compute the reward-to-go for a batch of reward sequences with a discount factor gamma.
-    
-    Parameters:
-        rewards_batch (torch.Tensor): A 2D tensor of shape (B, Horizon,1) where B is the batch size and Horizon is the length of each sequence.
-        gamma (float): The discount factor.
-    
-    Returns:
-        torch.Tensor: A 1D tensor of shape (B) containing reward-to-go values for each sequence in the batch.
-    """
-
-    assert rewards_batch.shape[2]==1
-
-    rewards_batch=rewards_batch.squeeze(-1) # (B,H,1) -> (B,H)
-    B, H = rewards_batch.shape
-
-    gamma_tensor = torch.pow(gamma, torch.arange(H, dtype=torch.float32)).to(rewards_batch.device)
-    gamma_matrix = gamma_tensor.unsqueeze(0).repeat(B, 1) # (B,H)
-
-    # Apply gamma matrix to compute reward-to-go
-    reward_to_go_batch = torch.sum(rewards_batch * gamma_matrix, dim=1)  # (B, H) -> (B)
-    
-    return reward_to_go_batch
-
-
-def sort_by_values(actions, observations, rewards,gamma): # refactorizar funcion
-    """
-    [B,H,(A+S+R)]
-    """
-    values=compute_reward_to_go_batch(rewards,gamma) # (B,H,1)-> (B)
-
-    inds = torch.argsort(values, descending=True)
-
-    actions_sorted = actions[inds]
-    observations_sorted=observations[inds]
-    rewards_sorted=rewards[inds]
-    values = values[inds]
-
-    return actions_sorted,observations_sorted,rewards_sorted, values
-
 
 
 class Policy:
@@ -166,10 +57,10 @@ class Policy:
         rewards_array=trajectory.rewards
 
 
-        actions_array=expand_array(actions_array,H=states_array.shape[0]) # ensure that this arrays has the same dims of states,fill with zeros...  K+1,A
+        actions_array=expand_array(actions_array,H=states_array.shape[0]) # ensure that this arrays has the same dims of states,fill with zeros...  K+1,A TODO why?
         rewards_array=expand_array(rewards_array,H=states_array.shape[0]) # K+1,1
 
-        unkown_part=np.zeros((states_array.shape[0],self.task_dim)) # corresponds to the task and the reward to go... K+1, Task_dim+1
+        unkown_part=np.zeros((states_array.shape[0],self.task_dim)) # corresponds to the task.. K+1, Task_dim
         known_trajectory=np.concatenate([states_array, actions_array ,rewards_array, unkown_part], axis=-1) # TODO this is the specific order... 
 
         known_trajectory_torch=torch.from_numpy(known_trajectory)  # K+1,T
@@ -194,6 +85,7 @@ class Policy_repaint_return_conditioned(Policy):
         self.horizon_sample=sample_kwargs.get("horizon_sample", self.dataset.horizon) # TODO test this... 
         self.keys_order=keys_order
         self.horizon=self.diffusion_model.horizon
+
     def __call__(self, rollouts,provide_task=None):
         """
         Main policy function that normalizes the data, calls the model and returns the result
@@ -206,7 +98,8 @@ class Policy_repaint_return_conditioned(Policy):
         Returns:
             df: dataframe with the data
         falta revisar que no inpaint step funcione, el sort tambien y la unnormalizacion tambien. evaluar todo aca.
-        """ 
+        """
+
         if self.resample_counter==0:
             assert self.resample_diff>0
             self.resample_counter=self.resample_diff-1

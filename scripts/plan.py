@@ -1,15 +1,15 @@
 import os
 import sys
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
+import wandb
+import torch
+from datetime import datetime
 from diffuser.sampling.policies import Policy_repaint_return_conditioned
 from diffuser.utils.setup import load_experiment_params,set_seed
 import diffuser.utils as utils
-import wandb
-import imageio.v2 as iio
-import numpy as np
-import torch
-from datetime import datetime
 from diffuser.utils.rollouts import TrajectoryBuffer
+from diffuser.utils.rendering import save_video,render_maze_2d
+
 #-----------------------------------------------------------------------------#
 #----------------------------------- setup -----------------------------------#
 #-----------------------------------------------------------------------------#
@@ -32,6 +32,10 @@ savepath=os.path.join(current_dir,args["logbase"], args["dataset_name"],"plans",
 
 os.makedirs(savepath,exist_ok=True)
 
+wandb_log=False
+return_chain=False
+epoch="latest"
+
 #-----------------------------------------------------------------------------#
 #---------------------------------- loading ----------------------------------#
 #-----------------------------------------------------------------------------#
@@ -39,7 +43,7 @@ os.makedirs(savepath,exist_ok=True)
 ## load diffusion model and value function from disk
 diffusion_experiment = utils.load_diffusion(
     diffusion_loadpath,
-    epoch="latest", seed=args["seed"],
+    epoch=epoch, seed=args["seed"],
 )
 
 diffusion = diffusion_experiment.ema
@@ -64,7 +68,7 @@ policy_config = utils.Config(
     ## sampling kwargs
     batch_size_sample=args["batch_size_sample"],
     horizon_sample = args["horizon_sample"],
-    return_chain=False
+    return_chain=return_chain
 )
 
 policy = policy_config()
@@ -73,8 +77,6 @@ policy = policy_config()
 #--------------------------------- main loop ---------------------------------#
 #-----------------------------------------------------------------------------#
  
-wandb_log=False
-
 if wandb_log:
     wandb.init(
         project='MT_inpainting_diffuser',
@@ -83,20 +85,6 @@ if wandb_log:
         save_code=True)
     
 print(savepath, flush=True)
-
-def save_video(env,seed,savepath,suffix,wandb_log=False):
-    filename = f'rollout_video_{seed}_{suffix}.mp4'
-    filepath=os.path.join(savepath,filename)
-    writer = iio.get_writer(filepath, fps=env.metadata["render_fps"])
-
-    frames=env.render()
-    for frame in frames:
-        frame = (frame * -255).astype(np.uint8)
-        writer.append_data(frame)
-    writer.close()
-
-    if wandb_log: wandb.log({"video": wandb.Video(filepath)})
-    pass
 
 seed = 123 #int(datetime.now().timestamp()) # TODO maybe change this... 
 print(f"Using seed:{seed}")
@@ -131,6 +119,10 @@ for episode in range(100):
             rollouts.end_trajectory()
             rollouts.save_trajectories(filepath=os.path.join(savepath,f'rollout_{seed}.pkl'))
             save_video(env,seed,savepath,suffix=episode,wandb_log=wandb_log)
+
+            episode=rollouts.rollouts_to_numpy(index=-1)
+            real_observations=episode.states
+            render_maze_2d(env=dataset.env,observations=real_observations,goal_state=task.cpu().numpy()[0,0,:],fig_name=f"maze_real_test_env") # TODO task
             break
         
 # Close the environment
