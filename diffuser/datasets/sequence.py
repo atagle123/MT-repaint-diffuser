@@ -332,6 +332,7 @@ class Maze2d_inpaint_dataset(SequenceDataset):
         self.episodes={}
         continue_bool=True
         ### generate new dataset in the format ###
+        ep_id=0
         for episode in episodes_generator:
             dict={}
             episode_steps=episode.actions.shape[0]
@@ -394,7 +395,8 @@ class Maze2d_inpaint_dataset(SequenceDataset):
                         attribute=task_array_2d
 
                     dict[new_name_key]=attribute
-            self.episodes[episode.id]=dict
+                self.episodes[ep_id]=dict
+                ep_id+=1 # NOT use enumerate becuase of not procced episodes
 
         self.normed_keys.append("returns")
 
