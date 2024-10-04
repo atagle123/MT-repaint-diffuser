@@ -156,9 +156,10 @@ class SequenceDataset(torch.utils.data.Dataset):
         Returns:
             returns_array (np.array) (L,1)
         """
+        rewards=np.squeeze(rewards, axis=-1) # dim (L,)
         rtg_list=[]
         horizon=len(rewards)-1  # the -1 is correct
-        
+
         discount_array=discount ** np.arange(horizon+1) # (H) # check time TODO
         discount_array=atleast_2d(discount_array)
         norm_factors=[self.calc_norm_factor(discount,horizon) for horizon in range(horizon+1)] # ordered list with list[horizon]-> norm_factor(horizon)
@@ -329,7 +330,7 @@ class Maze2d_inpaint_dataset(SequenceDataset):
 
         episodes_generator = self.minari_dataset.iterate_episodes()
         self.episodes={}
-
+        continue_bool=True
         ### generate new dataset in the format ###
         for episode in episodes_generator:
             dict={}
@@ -345,6 +346,7 @@ class Maze2d_inpaint_dataset(SequenceDataset):
                 ###
                 # specific truncation in maze2d dataset... 2 options truncate first element or change desired goal... 
                 ###
+                
                 attribute_2d=attribute_2d[1:,:]
 
                 if self.use_padding: # TODO check this... and order
@@ -355,25 +357,36 @@ class Maze2d_inpaint_dataset(SequenceDataset):
                     attribute_2d=attribute
 
 
-                if key=="rewards":
+
+                if new_name_key=="rewards":
+
                     ### change rewards ###
                     current=episode.observations["observation"][:,:2]
                     goal=episode.observations["desired_goal"]
                     distance=np.linalg.norm(current-goal,axis=1)
-                    distance=distance[1:] # truncated
+                    distance=distance[1:] # truncated to calculate rewards...
 
                     new_rewards=np.exp(-distance)
-                    assert new_rewards.shape==attribute_2d.shape
-
-                    attribute_2d=new_rewards
+                    new_rewards_2d=atleast_2d(new_rewards)[1:,:] # truncation
+                    are_equal_1_2 = np.array_equal(new_rewards_2d,attribute_2d)
+                    print("array1 and array2 are equal:", are_equal_1_2) # TODO test
+                    if not are_equal_1_2:
+                        differences = np.where(new_rewards_2d != attribute_2d)
+                        print("Differences found at indices:", differences[0])
+                        for index in differences[0]:
+                            print(f"array1[{index}] = {new_rewards_2d[index]}, array2[{index}] = {attribute_2d[index]}")
+                    assert new_rewards_2d.shape==attribute_2d.shape
+                    print(attribute_2d.shape)
+                    attribute_2d=new_rewards_2d
                     ######################
-                    if episode.terminations.any():
-                        episode_lenght=episode.total_timesteps
-                        attribute_2d[episode_lenght-1]+=self.termination_penalty  # o quizas -1 tambien sirve...
 
-                    
-                    returns_array=self.make_returns(rewards=attribute_2d,discount=self.discount)#,episode=episode) # make returns per episode before use pad min
+                    if episode.terminations.any():
+                        attribute_2d[-1,:]+=self.termination_penalty  # o quizas -1 tambien sirve...
+
+                    returns_array=self.make_returns(rewards=attribute_2d,discount=self.discount) # make returns per episode before use pad min
                     dict["returns"]=atleast_2d(returns_array)
+
+
 
                 attribute=pad_min(attribute_2d,min_len=self.horizon) # set the minimum lenght of a trajectory
 
