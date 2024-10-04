@@ -1,14 +1,14 @@
 import os
 import numpy as np
 import einops
-import imageio
 import matplotlib.pyplot as plt
 from matplotlib.colors import ListedColormap
 import gymnasium
 import mujoco as mjc
 import warnings
 import pdb
-
+import wandb
+import imageio.v2 as iio
 from .arrays import to_np
 
 
@@ -147,3 +147,21 @@ def render_maze_2d(env,observations,goal_state,fig_name="maze2d_plot"):
     plt.scatter(observations[:,1], observations[:,0], c=colors, zorder=10)
     plt.title("test")
     plt.savefig(f'{fig_name}.png', dpi=300) #   TODO : save path
+
+
+def save_video(env,seed,savepath,suffix,wandb_log=False):
+    """
+    Asumes that env is in render mode
+    """
+    filename = f'rollout_video_{seed}_{suffix}.mp4'
+    filepath=os.path.join(savepath,filename)
+    writer = iio.get_writer(filepath, fps=env.metadata["render_fps"])
+
+    frames=env.render()
+    for frame in frames:
+        frame = (frame * -255).astype(np.uint8)
+        writer.append_data(frame)
+    writer.close()
+
+    if wandb_log: wandb.log({"video": wandb.Video(filepath)})
+    pass
