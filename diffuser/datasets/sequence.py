@@ -334,73 +334,66 @@ class Maze2d_inpaint_dataset(SequenceDataset):
         ### generate new dataset in the format ###
         for episode in episodes_generator:
             dict={}
-            for new_name_key,key in view_keys_dict.items():
+            episode_steps=episode.actions.shape[0]
+            if episode_steps>1:
                 
-                attribute=find_key_in_data(episode,key)
+                for new_name_key,key in view_keys_dict.items():
+                    
+                    attribute=find_key_in_data(episode,key)
 
-                if attribute is None:
-                    raise KeyError(f" Couldn't find a np.array value for the key {key}")
+                    if attribute is None:
+                        raise KeyError(f" Couldn't find a np.array value for the key {key}")
 
-                attribute_2d=atleast_2d(attribute)
+                    attribute_2d=atleast_2d(attribute)
+                    ###
+                    # specific truncation in maze2d dataset... 2 options truncate first element or change desired goal... 
+                    ###
+                    
+                    attribute_2d=attribute_2d[1:,:]
 
-                ###
-                # specific truncation in maze2d dataset... 2 options truncate first element or change desired goal... 
-                ###
-                
-                attribute_2d=attribute_2d[1:,:]
+                    if self.use_padding: # TODO check this... and order
+                        attribute=pad(attribute_2d,max_len=self.max_path_length)
 
-                if self.use_padding: # TODO check this... and order
-                    attribute=pad(attribute_2d,max_len=self.max_path_length)
-
-                    assert attribute.shape==(self.max_path_length,attribute_2d.shape[-1])
-
-                    attribute_2d=attribute
+                        assert attribute.shape==(self.max_path_length,attribute_2d.shape[-1])
+                        attribute_2d=attribute
 
 
+                    if new_name_key=="rewards":
 
-                if new_name_key=="rewards":
+                        ### change rewards ###
+                        current=episode.observations["observation"][:,:2]
+                        goal=episode.observations["observation"][-1,:2]#episode.observations["desired_goal"] # 
+                        goal=np.tile(goal, (current.shape[0], 1))
+                        distance=np.linalg.norm(current-goal,axis=1)
+                        distance=distance[1:] # truncated to calculate rewards...
 
-                    ### change rewards ###
-                    current=episode.observations["observation"][:,:2]
-                    goal=episode.observations["desired_goal"]
-                    distance=np.linalg.norm(current-goal,axis=1)
-                    distance=distance[1:] # truncated to calculate rewards...
+                        new_rewards=np.exp(-distance)
+                        new_rewards_2d=atleast_2d(new_rewards)[1:,:] # truncation
+                        assert new_rewards_2d.shape==attribute_2d.shape
+                        attribute_2d=new_rewards_2d
+                        ######################
 
-                    new_rewards=np.exp(-distance)
-                    new_rewards_2d=atleast_2d(new_rewards)[1:,:] # truncation
-                    are_equal_1_2 = np.array_equal(new_rewards_2d,attribute_2d)
-                    print("array1 and array2 are equal:", are_equal_1_2) # TODO test
-                    if not are_equal_1_2:
-                        differences = np.where(new_rewards_2d != attribute_2d)
-                        print("Differences found at indices:", differences[0])
-                        for index in differences[0]:
-                            print(f"array1[{index}] = {new_rewards_2d[index]}, array2[{index}] = {attribute_2d[index]}")
-                    assert new_rewards_2d.shape==attribute_2d.shape
-                    print(attribute_2d.shape)
-                    attribute_2d=new_rewards_2d
-                    ######################
+                        if episode.terminations.any():
+                            attribute_2d[-1,:]+=self.termination_penalty  # o quizas -1 tambien sirve...
 
-                    if episode.terminations.any():
-                        attribute_2d[-1,:]+=self.termination_penalty  # o quizas -1 tambien sirve...
-
-                    returns_array=self.make_returns(rewards=attribute_2d,discount=self.discount) # make returns per episode before use pad min
-                    dict["returns"]=atleast_2d(returns_array)
+                        returns_array=self.make_returns(rewards=attribute_2d,discount=self.discount) # make returns per episode before use pad min
+                        dict["returns"]=atleast_2d(returns_array)
 
 
 
-                attribute=pad_min(attribute_2d,min_len=self.horizon) # set the minimum lenght of a trajectory
+                    attribute=pad_min(attribute_2d,min_len=self.horizon) # set the minimum lenght of a trajectory
 
-                if new_name_key=="task": # only for maze2d...
-                    new_task=episode.observations["observation"][-1,:2] # last observation
-                    H=attribute.shape[0] # goal is setted in all the trajectory including in the filled values with the pad min function
+                    if new_name_key=="task": # only for maze2d...
+                        new_task=episode.observations["observation"][-1,:2] # last observation
+                        H=attribute.shape[0] # goal is setted in all the trajectory including in the filled values with the pad min function
 
-                    task_array=np.tile(new_task, (H,1))
-                    task_array_2d=atleast_2d(task_array)
-                    assert task_array_2d.shape==attribute.shape
+                        task_array=np.tile(new_task, (H,1))
+                        task_array_2d=atleast_2d(task_array)
+                        assert task_array_2d.shape==attribute.shape
 
-                    attribute=task_array_2d
+                        attribute=task_array_2d
 
-                dict[new_name_key]=attribute
+                    dict[new_name_key]=attribute
             self.episodes[episode.id]=dict
 
         self.normed_keys.append("returns")
