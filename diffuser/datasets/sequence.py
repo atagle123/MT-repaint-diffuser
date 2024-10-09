@@ -421,7 +421,7 @@ class Maze2d_inpaint_dataset(SequenceDataset):
 class Maze2d_inpaint_dataset_returns(Maze2d_inpaint_dataset):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-
+    
     def __getitem__(self, idx):
         ep_id, start, end = self.indices[idx]
         episode=self.episodes[ep_id]
@@ -438,6 +438,25 @@ class Maze2d_inpaint_dataset_returns(Maze2d_inpaint_dataset):
 
         return batch
     
+    
+    
+    def make_returns_in_batch(self,observation,task):
+        """
+        Function that recieves a state and a goal and sees if it solves the task.
+        
+        Args:
+            observation (np.array): observation array (1,2)
+            task (np.array): task array (1,2)
+       
+        Returns:
+            returns_array (np.array) (1,1)
+        """
+        distance=np.linalg.norm(observation-task,axis=1)
+        if distance<0.5:
+            return(np.array([[1]]))
+        else:
+            return(np.array([[0]]))
+
 
 
 """
