@@ -45,7 +45,7 @@ class Policy:
         for key in keys_order: # TODO construct dims one time only...
             current_dim=self.dataset.keys_dim_dict[key]+previous_dim
             unnormed_attribute = trajectory[:, :, previous_dim:current_dim]
-            trajectory[:, :, previous_dim:current_dim]=self.dataset.normalizer.normalize(unnormed_attribute, key) 
+            trajectory[:, :, previous_dim:current_dim]=self.dataset.normalizer.unnormalize(unnormed_attribute, key) 
             previous_dim=current_dim
         return(trajectory)
     
@@ -96,6 +96,7 @@ class Policy_repaint_return_conditioned(Policy):
         self.action_dim = diffusion_model.action_dim
         self.observation_dim = diffusion_model.observation_dim
         self.task_dim=diffusion_model.task_dim
+        self.transition_dim=self.action_dim+self.observation_dim+1+self.task_dim
         self.gamma=gamma # used to calculate values of plans
         self.batch_size_sample=batch_size_sample
 
@@ -119,6 +120,7 @@ class Policy_repaint_return_conditioned(Policy):
         Returns:
             df: dataframe with the data
         falta revisar que no inpaint step funcione, el sort tambien y la unnormalizacion tambien. evaluar todo aca.
+        TODO: return unnormed task.
         """
 
         if self.resample_counter==0: # resample when resample counter is 0
@@ -131,9 +133,9 @@ class Policy_repaint_return_conditioned(Policy):
                 task=self.inpaint_task(normed_conditions,H=self.horizon_sample) #TODO check this
             else:
                 task=self.dataset.normalizer.normalize(provide_task, "task") #norm task
-                task=torch.from_numpy(task) 
+                task=torch.from_numpy(task)
 
-            actions,observations,rewards, values=self.inpaint_action(normed_conditions,task,H=self.horizon_sample)
+            actions,observations,rewards,task, values=self.inpaint_action(normed_conditions,task,H=self.horizon_sample)
 
         else: # continue with the past plan
             actions=self.actions_plan
@@ -155,8 +157,8 @@ class Policy_repaint_return_conditioned(Policy):
     def inpaint_task(self,normed_conditions,H):
 
         tensor_to_inpaint=expand_tensor(normed_conditions,H=H,max_K=H) # B,K,T-> B,H,T # TODO acordarse del ultimo state... TODO TEST THIS... with K> H
-
-        mask=get_mask_from_tensor(normed_conditions,H=H,observation_dim=self.observation_dim,max_K=H) # mask #TODO TEST THIS... AND FIRST STATE...
+        K=tensor_to_inpaint.shape[1]
+        mask=get_mask_from_tensor(B=1,K=K,T=self.transition_dim ,H=H, observation_dim=self.observation_dim,max_K=H) # mask #TODO TEST THIS... AND FIRST STATE...
         
         mask[:,:,-self.task_dim:]=0 # mask unkown task
 
@@ -182,15 +184,16 @@ class Policy_repaint_return_conditioned(Policy):
     def inpaint_action(self,normed_conditions,task,H):
         """
         Function to inpaint action
-        TODO: what if i samlpe more than one task?, the tasks comes in batch.
+        TODO: what if i samlpe using more than one task?, the tasks comes in batch.
         
         """
         tensor_to_inpaint=expand_tensor(normed_conditions,H=H,max_K=1) # expand tensor to (1,H,T) and only use the first state as history  TODO acordarse del ultimo state... TODO TEST THIS... with K> H
-        mask=get_mask_from_tensor(normed_conditions,H=H,observation_dim=self.observation_dim,max_K=1) # get mask from tensor to inpaint of dim (1,H,T) TODO TEST THIS...
+        mask=get_mask_from_tensor(B=1,K=1,T=self.transition_dim,H=H,observation_dim=self.observation_dim) # get mask from tensor to inpaint of dim (1,H,T) 
         mask[:,:,-self.task_dim:]=1 # unmask the task
 
         tensor_to_inpaint[:,:,-self.task_dim:]=task # replace with the provided or infered task
-        tensor_to_inpaint=mask*tensor_to_inpaint # ENSURE TO not have extra info TODO note that de igual manera esto va a pasar en el modelo...
+
+        tensor_to_inpaint=mask*tensor_to_inpaint # ENSURE TO not have extra info 
 
         tensor_to_inpaint=tensor_to_inpaint.repeat(self.batch_size_sample,1,1).float() # batchify the tensor and mask
         mask=mask.repeat(self.batch_size_sample,1,1).float()
@@ -211,7 +214,7 @@ class Policy_repaint_return_conditioned(Policy):
         observations=unnormed_batch[:,:,self.observation_dim:]
         actions=unnormed_batch[:,:,self.observation_dim:self.observation_dim+self.action_dim]
         rewards=unnormed_batch[:,:,self.observation_dim+self.action_dim:self.observation_dim+self.action_dim+1]
-
+        task=unnormed_batch[:,:,-self.task_dim:]
      #   actions,observations,rewards, values=sort_by_values(actions, observations, rewards,gamma=self.gamma) # in maze2d this doesnt make sense because the goal is to reach a objective...
 
-        return(actions,observations,rewards, "_")
+        return(actions,observations,rewards,task, "_")

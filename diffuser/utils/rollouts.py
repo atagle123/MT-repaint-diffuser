@@ -21,10 +21,9 @@ class TrajectoryBuffer:
     trajectories: List[Trajectory] = field(default_factory=list)
     current_trajectory: Trajectory = field(default=None)
 
-    def __init__(self, first_observation: np.ndarray, first_info: Any,action_dim: int):
+    def __init__(self,action_dim: int):
         self.trajectories = []
         self.action_dim=action_dim
-        self.start_trajectory(first_observation, first_info)
 
     def start_trajectory(self, first_observation: np.ndarray, first_info: Any):
         self.current_trajectory = Trajectory(

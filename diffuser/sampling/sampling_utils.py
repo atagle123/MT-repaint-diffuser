@@ -19,17 +19,17 @@ def get_mask_from_tensor(B, K, T, H, observation_dim, dtype=torch.float32, devic
         A mask with the desired attributes. 
 
     """
-    ones = torch.ones(B, K, T, dtype=dtype, device=device)
+    ones = torch.ones(B, K, T, dtype=dtype)
 
     # Crear un tensor de ceros con la forma (H-K, T)
-    zeros = torch.zeros(B, H - K+1, T, dtype=dtype, device=device) # revisar
+    zeros = torch.zeros(B, H - K+1, T, dtype=dtype) # revisar
     # Concatenar el tensor original con el tensor de ceros
     mask = torch.cat((ones[:,:(K-1),:], zeros), dim=1)
     mask[:,K-1,:observation_dim]=1 # TODO revisar
     
     assert mask.shape==(B,H,T)
 
-    return mask
+    return mask.to(device=device)
 
 
 
@@ -54,7 +54,7 @@ def expand_array(array, H, max_K=None):
     return expanded_array
 
 
-def expand_tensor(tensor, H, max_K=None):
+def expand_tensor(tensor, H, max_K=None,device="cuda"):
     """
     Function to expand a tensor
     """
@@ -72,7 +72,7 @@ def expand_tensor(tensor, H, max_K=None):
         # Concatenar el tensor original con el tensor de ceros
         expanded_tensor = torch.cat((tensor, zeros), dim=1)
     
-    return expanded_tensor
+    return expanded_tensor.to(device=device)
 
 
 

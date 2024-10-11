@@ -64,7 +64,7 @@ policy_config = utils.Config(
     dataset=dataset,
     gamma=args["gamma"],
     keys_order=("observations","actions","rewards","task"), # TODO maybe this should be an attribute of dataset...
-    resample_diff=125,
+    resample_plan_every=125,
     ## sampling kwargs
     batch_size_sample=args["batch_size_sample"],
     horizon_sample = args["horizon_sample"],
@@ -92,14 +92,16 @@ print(savepath, flush=True)
 seed = 123 #int(datetime.now().timestamp()) # TODO maybe change this... 
 print(f"Using seed:{seed}")
 
-env = dataset.minari_dataset.recover_environment(render_mode="rgb_array_list")
-observation, info = env.reset(seed=seed)
 
-rollouts=TrajectoryBuffer(observation["observation"],info,action_dim=dataset.action_dim)
+
+rollouts=TrajectoryBuffer(action_dim=dataset.action_dim)
 
 # maze2d only
 for episode in range(100):
+    env = dataset.minari_dataset.recover_environment(render_mode="rgb_array_list")
+    observation, info = env.reset(seed=seed+episode)
 
+    rollouts.start_trajectory(first_observation=observation["observation"],first_info=info)
     total_reward = 0
     for t in range(args["max_episode_length"]):
 
@@ -126,9 +128,10 @@ for episode in range(100):
 
             episode=rollouts.rollouts_to_numpy(index=-1)
             real_observations=episode.states
-            render_maze_2d(env=dataset.env,observations=real_observations,goal_state=task.cpu().numpy()[0,0,:],fig_name=f"maze_real_test_env") # TODO task
+            render_maze_2d(env=dataset.env,observations=real_observations,goal_state=observation["desired_goal"],fig_name=f"maze_real_test_env_plan") # TODO task
 
-            rollouts.start_trajectory(first_observation=observation["observation"],first_info=info)
+            import time
+            time.sleep(5)
             break
         
 # Close the environment
