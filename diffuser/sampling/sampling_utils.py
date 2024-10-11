@@ -3,39 +3,29 @@ import numpy as np
 
 
 
-def get_mask_from_tensor(B, K, T, H,observation_dim,dtype=torch.float32,device="cuda",max_K=None):
+def get_mask_from_tensor(B, K, T, H, observation_dim, dtype=torch.float32, device="cuda"):
     """
     Function to get mask from a tensor
     Args:
         B (int): Batch size
-        K (int): Large of tensor
+        K (int): Large of unmasked tensor
         T (int): Transition dim
         H (int): Desired horizon
         observation_dim (int): obs dim
         dtype (dtype): dtype
         device (str): device
-        max_k (int or None): Maximum horizon unmasked
 
     Returns:
         A mask with the desired attributes. 
 
     """
-    max_K= max_K or H
-    #assert max_K>0
     ones = torch.ones(B, K, T, dtype=dtype, device=device)
 
-    if max_K < K:
-        zeros = torch.zeros(B, H - max_K+1, T, dtype=dtype, device=device)
-                # Concatenar el tensor original con el tensor de ceros
-        mask = torch.cat((ones[:,:(max_K-1),:], zeros), dim=1) # TODO REVISAR
-        mask[:,max_K-1,:observation_dim]=1 # unmask the first state...
-        
-    else:
-        # Crear un tensor de ceros con la forma (H-K, T)
-        zeros = torch.zeros(B, H - K+1, T, dtype=dtype, device=device) # revisar
-        # Concatenar el tensor original con el tensor de ceros
-        mask = torch.cat((ones[:,:(K-1),:], zeros), dim=1)
-        mask[:,K-1,:observation_dim]=1 # TODO revisar
+    # Crear un tensor de ceros con la forma (H-K, T)
+    zeros = torch.zeros(B, H - K+1, T, dtype=dtype, device=device) # revisar
+    # Concatenar el tensor original con el tensor de ceros
+    mask = torch.cat((ones[:,:(K-1),:], zeros), dim=1)
+    mask[:,K-1,:observation_dim]=1 # TODO revisar
     
     assert mask.shape==(B,H,T)
 

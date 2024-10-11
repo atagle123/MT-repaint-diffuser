@@ -68,7 +68,10 @@ policy_config = utils.Config(
     ## sampling kwargs
     batch_size_sample=args["batch_size_sample"],
     horizon_sample = args["horizon_sample"],
-    return_chain=return_chain
+    guidance_scale= 1.2, 
+    temperature= 0.5,
+    resample_every= 50,
+    return_chain= return_chain
 )
 
 policy = policy_config()
@@ -91,30 +94,31 @@ print(f"Using seed:{seed}")
 
 env = dataset.minari_dataset.recover_environment(render_mode="rgb_array_list")
 observation, info = env.reset(seed=seed)
+
+rollouts=TrajectoryBuffer(observation["observation"],info,action_dim=dataset.action_dim)
+
 # maze2d only
 for episode in range(100):
 
-    rollouts=TrajectoryBuffer(observation["observation"],info,action_dim=dataset.action_dim)
     total_reward = 0
     for t in range(args["max_episode_length"]):
-    # print(observation,"observation")
+
         action, samples = policy(rollouts,provide_task=observation["desired_goal"])
-    # print(action)
-    # print("infered_task",samples.task)
+
         ## execute action in environment
         observation, reward, terminated, truncated, info = env.step(action)
-        ## print reward and score
-        total_reward += reward
-        # clave que el max episode lenght sea el mismo que el con el que se recolecto el dataset, para el score, si no se tienen scores diferentes.
+
+        total_reward += reward # clave que el max episode lenght sea el mismo que el con el que se recolecto el dataset, para el score, si no se tienen scores diferentes.
         
         print(
-            f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | I_task: {samples.task} | R_task: {observation["desired_goal"]}',
+            f't: {t} | r: {reward:.2f} |  R: {total_reward:.2f} | Infered_task: {samples.task} | Real_task: {observation["desired_goal"]}',
             #f'values: {samples.values} | scale: {args["scale"]}',
             flush=True,)
 
         rollouts.add_transition(observation["observation"], action, reward, terminated,total_reward,info) # maze2d
 
         if terminated or info["success"]==True or t==args["max_episode_length"]-1: # maze2d
+
             policy.resample_counter=0
             rollouts.end_trajectory()
             rollouts.save_trajectories(filepath=os.path.join(savepath,f'rollout_{seed}.pkl'))
@@ -123,10 +127,29 @@ for episode in range(100):
             episode=rollouts.rollouts_to_numpy(index=-1)
             real_observations=episode.states
             render_maze_2d(env=dataset.env,observations=real_observations,goal_state=task.cpu().numpy()[0,0,:],fig_name=f"maze_real_test_env") # TODO task
+
+            rollouts.start_trajectory(first_observation=observation["observation"],first_info=info)
             break
         
 # Close the environment
 env.close()
 
 ## write results to json file at `args.savepath`
-logger.finish(t, total_reward, terminated, diffusion_experiment,seed,args["batch_size_sample"])
+logger.finish(t, total_reward, terminated, diffusion_experiment,seed,args["batch_size_sample"]) # TODO change to inside the terminated 
+
+
+
+#IDEA LOOP
+"""
+1. crea env
+2. loop sobre episodios (totrew=0),reset loggger 
+    3. loop sobre episodio, cuando termina (save video, logger, episode rollout, render map)
+4. env close
+
+
+Policy(task,rollouts)
+infer task
+infer action
+return action
+
+"""
