@@ -154,21 +154,24 @@ class Policy_repaint_return_conditioned(Policy):
         return(first_action.cpu().numpy(), Trajectories(actions,observations,rewards,task))
 
     
-    def inpaint_task(self,normed_conditions,H):
-
-        tensor_to_inpaint=expand_tensor(normed_conditions,H=H,max_K=H) # B,K,T-> B,H,T # TODO acordarse del ultimo state... TODO TEST THIS... with K> H
-        K=tensor_to_inpaint.shape[1]
-        mask=get_mask_from_tensor(B=1,K=K,T=self.transition_dim ,H=H, observation_dim=self.observation_dim,max_K=H) # mask #TODO TEST THIS... AND FIRST STATE...
+    def inpaint_task(self,normed_conditions,H,exploration_steps=100):
         
-        mask[:,:,-self.task_dim:]=0 # mask unkown task
+        K=min(normed_conditions.shape[1],H)
+        if K>exploration_steps:
+            tensor_to_inpaint=expand_tensor(normed_conditions,H=H,max_K=H) # B,K,T-> B,H,T # TODO acordarse del ultimo state... TODO TEST THIS... with K> H
+            mask=get_mask_from_tensor(B=1,K=K,T=self.transition_dim ,H=H, observation_dim=self.observation_dim) # mask #TODO TEST THIS... AND FIRST STATE...
+            
+            mask[:,:,-self.task_dim:]=0 # mask unkown task
+            #print("mask",mask)
+            tensor_to_inpaint=mask*tensor_to_inpaint # ENSURE TO not have extra info TODO note that de igual manera esto va a pasar en el modelo...
+            #print("tensor",tensor_to_inpaint)
+            tensor_to_inpaint=tensor_to_inpaint.repeat(self.batch_size_sample,1,1).float() # batchify 
+            mask=mask.repeat(self.batch_size_sample,1,1).float()
 
-        tensor_to_inpaint=mask*tensor_to_inpaint # ENSURE TO not have extra info TODO note that de igual manera esto va a pasar en el modelo...
-
-        tensor_to_inpaint=tensor_to_inpaint.repeat(self.batch_size_sample,1,1).float() # batchify 
-        mask=mask.repeat(self.batch_size_sample,1,1).float()
-
-        trajectories = self.diffusion_model(traj_known=tensor_to_inpaint, mask=mask,returns=None, **self.sample_kwargs) # notar que esto hace que inferir task dependa de returns inconditioned...
-        task=self.infer_task_from_batch(trajectories.trajectories)
+            trajectories = self.diffusion_model(traj_known=tensor_to_inpaint, mask=mask,returns=None, **self.sample_kwargs) # notar que esto hace que inferir task dependa de returns inconditioned...
+            task=self.infer_task_from_batch(trajectories.trajectories)
+        else:
+            task=torch.zeros((2))
         return(task)
     
 
@@ -177,8 +180,8 @@ class Policy_repaint_return_conditioned(Policy):
         Infer task from batch.
         """
 
-        task_mean=torch.mean(sampled_batch[:,:,-self.task_dim:],dim=(0,1))
-        return(task_mean)
+        task=sampled_batch[0,1,-self.task_dim:]#torch.mean(sampled_batch[:,:,-self.task_dim:],dim=(0,1)) # TODO change
+        return(task)
     
 
     def inpaint_action(self,normed_conditions,task,H):
@@ -217,4 +220,4 @@ class Policy_repaint_return_conditioned(Policy):
         task=unnormed_batch[:,:,-self.task_dim:]
      #   actions,observations,rewards, values=sort_by_values(actions, observations, rewards,gamma=self.gamma) # in maze2d this doesnt make sense because the goal is to reach a objective...
 
-        return(actions,observations,rewards,task, "_")
+        return(actions,observations,rewards,task[0,1,:], "_")

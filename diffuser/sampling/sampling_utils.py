@@ -19,6 +19,7 @@ def get_mask_from_tensor(B, K, T, H, observation_dim, dtype=torch.float32, devic
         A mask with the desired attributes. 
 
     """
+    assert K>0
     ones = torch.ones(B, K, T, dtype=dtype)
 
     # Crear un tensor de ceros con la forma (H-K, T)
@@ -26,7 +27,7 @@ def get_mask_from_tensor(B, K, T, H, observation_dim, dtype=torch.float32, devic
     # Concatenar el tensor original con el tensor de ceros
     mask = torch.cat((ones[:,:(K-1),:], zeros), dim=1)
     mask[:,K-1,:observation_dim]=1 # TODO revisar
-    
+
     assert mask.shape==(B,H,T)
 
     return mask.to(device=device)

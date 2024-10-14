@@ -129,7 +129,7 @@ for episode in range(100):
             episode=rollouts.rollouts_to_numpy(index=-1)
             real_observations=episode.states
             render_maze_2d(env=dataset.env,observations=real_observations,goal_state=observation["desired_goal"],fig_name=f"maze_real_test_env_plan") # TODO task
-
+#render_maze_2d(env=dataset.env,observations=observations.cpu().numpy()[0,:,:],goal_state=task.cpu().numpy()[0,0,:],fig_name=f"maze_sample_test_env{t}")
             import time
             time.sleep(5)
             break
@@ -145,8 +145,8 @@ logger.finish(t, total_reward, terminated, diffusion_experiment,seed,args["batch
 #IDEA LOOP
 """
 1. crea env
-2. loop sobre episodios (totrew=0),reset loggger 
-    3. loop sobre episodio, cuando termina (save video, logger, episode rollout, render map)
+2. loop sobre episodios (totrew=0),reset loggger
+    3. loop sobre episodio, cuando termina (save video, logger, episode rollout, render map and render diffusion imagined map)
 4. env close
 
 
