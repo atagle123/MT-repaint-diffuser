@@ -233,6 +233,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
                 max_start = min(episode_lenght - horizon,self.max_path_length - horizon) # assumes thath the min lenght is horizon... 
                 
+                assert max_start>=0
                 assert episode_lenght>=horizon
 
             for start in range(max_start+1):
@@ -330,7 +331,7 @@ class Maze2d_inpaint_dataset(SequenceDataset):
 
         episodes_generator = self.minari_dataset.iterate_episodes()
         self.episodes={}
-        continue_bool=True
+        
         ### generate new dataset in the format ###
         ep_id=0
         for episode in episodes_generator:

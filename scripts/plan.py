@@ -107,6 +107,11 @@ for episode in range(100):
 
         action, samples = policy(rollouts,provide_task=observation["desired_goal"])
 
+        #next_waypoint = samples.observations[0,1,:]
+       # actual_waypoint = samples.observations[0,0,:]
+
+       # action = next_waypoint[:2] - actual_waypoint[:2] + (next_waypoint[2:] - actual_waypoint[2:])
+       # action=action.cpu().numpy()
         ## execute action in environment
         observation, reward, terminated, truncated, info = env.step(action)
 

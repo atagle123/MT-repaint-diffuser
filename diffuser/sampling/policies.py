@@ -150,7 +150,7 @@ class Policy_repaint_return_conditioned(Policy):
         self.observations_plan=observations[:,1:,:]
         self.rewards_plan=rewards[:,1:,:]
         self.task=task
-     
+
         return(first_action.cpu().numpy(), Trajectories(actions,observations,rewards,task))
 
     
@@ -213,8 +213,7 @@ class Policy_repaint_return_conditioned(Policy):
         IDEAS: Estimate MAP? or estimate highest value (if obs reach goal) and select action
         """
         unnormed_batch=self.unorm_everything(sampled_batch,keys_order=self.keys_order)
-
-        observations=unnormed_batch[:,:,self.observation_dim:]
+        observations=unnormed_batch[:,:,:self.observation_dim]
         actions=unnormed_batch[:,:,self.observation_dim:self.observation_dim+self.action_dim]
         rewards=unnormed_batch[:,:,self.observation_dim+self.action_dim:self.observation_dim+self.action_dim+1]
         task=unnormed_batch[:,:,-self.task_dim:]
