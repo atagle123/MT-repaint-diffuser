@@ -29,7 +29,7 @@ current_dir=os.getcwd()
 savepath=os.path.join(current_dir,args["logbase"], args["dataset_name"],"diffusion", exp_name)
 os.makedirs(savepath, exist_ok=True)
 
-wandb_log=True
+wandb_log=False
 save_freq= 20000
 sample_freq= 20000
 n_saves= 5
