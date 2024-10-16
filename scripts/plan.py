@@ -16,6 +16,7 @@ from diffuser.utils.rendering import save_video,render_maze_2d
 
 dataset="maze2d"
 exp_name="gaussian_diff_returns_condition_H_128"
+exp_name="gaussian_diff_returns_condition_H_128_1e-4_aug_ds"
 
 args=load_experiment_params(f"logs/configs/{dataset}/{exp_name}/configs_diffusion.txt")
 
@@ -142,7 +143,7 @@ for episode in range(100):
 # Close the environment
 env.close()
 
-## write results to json file at `args.savepath`
+## write results to json file at `args.savepa th`
 logger.finish(t, total_reward, terminated, diffusion_experiment,seed,args["batch_size_sample"]) # TODO change to inside the terminated 
 
 

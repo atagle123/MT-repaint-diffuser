@@ -14,7 +14,7 @@ import wandb
 #-----------------------------------------------------------------------------#
 
 dataset="maze2d"
-exp_name="gaussian_diff_returns_condition_H_128"
+exp_name="gaussian_diff_returns_condition_H_128_1e-4_aug_ds"
 
 args=load_experiment_params(f"logs/configs/{dataset}/{exp_name}/configs_diffusion.txt")
 
@@ -29,7 +29,7 @@ current_dir=os.getcwd()
 savepath=os.path.join(current_dir,args["logbase"], args["dataset_name"],"diffusion", exp_name)
 os.makedirs(savepath, exist_ok=True)
 
-wandb_log=False
+wandb_log=True
 save_freq= 20000
 sample_freq= 20000
 n_saves= 5
