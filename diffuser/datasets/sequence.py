@@ -246,7 +246,7 @@ class SequenceDataset(torch.utils.data.Dataset):
 
     def augment_dataset(self):
         pass
-    
+
     def inference_mode(self):
         del self.episodes; del self.indices #save memory in inference 
 
@@ -402,7 +402,7 @@ class Maze2d_inpaint_dataset(SequenceDataset):
                 self.episodes[ep_id]=dict
                 ep_id+=1 # NOT use enumerate becuase of not procced episodes
 
-        self.normed_keys.append("returns")
+        #self.normed_keys.append("returns")
 
 
     def __getitem__(self, idx):
@@ -549,7 +549,7 @@ class Maze2d_inpaint_dataset_returns_augmented(Maze2d_inpaint_dataset):
         self.indices=indices
 
         #self.normed_keys.append("returns")
-    def augment_dataset(self,mult_size=1):
+    def augment_dataset(self,mult_size=5):
         ep_counter=0
         augmented_episodes={}
         for ep_id,episode_dict in self.episodes.items():
@@ -561,30 +561,26 @@ class Maze2d_inpaint_dataset_returns_augmented(Maze2d_inpaint_dataset):
             ep_counter+=1
             position=observations[:,:2]
 
-            for i in range(mult_size):
-                goal_in_traj=True
-                counter=0
-                while goal_in_traj and counter<1:
-                    counter+=1
-                    goal=self.sample_goals(size=1) # sample n goals and see the possible ones...
-                    goal_in_traj=self.check_goal_in_trajectory(goal,position)
+            goals=self.sample_goals(size=mult_size)
+            for goal in goals:
+                goal_in_traj=self.check_goal_in_trajectory(goal,position)
 
-                    if not goal_in_traj:
-                        goal=np.tile(goal, (observations.shape[0], 1))
-                        distance=np.linalg.norm(position-goal,axis=1)
-                        new_rewards=np.exp(-distance)
-                        new_rewards_2d=atleast_2d(new_rewards)[1:,:] # truncation
+                if not goal_in_traj:
+                    goal=np.tile(goal, (observations.shape[0], 1))
+                    distance=np.linalg.norm(position-goal,axis=1)
+                    new_rewards=np.exp(-distance)
+                    new_rewards_2d=atleast_2d(new_rewards)[1:,:] # truncation
 
-                        assert new_rewards_2d.shape[0]==actions.shape[0]
+                    assert new_rewards_2d.shape[0]==actions.shape[0]
 
-                        dict={}
-                        dict["observations"]=observations
-                        dict["actions"]=actions
-                        dict["rewards"]=new_rewards_2d
-                        dict["task"]=goal
-    
-                        augmented_episodes[ep_counter]=dict
-                        ep_counter+=1
+                    dict={}
+                    dict["observations"]=observations
+                    dict["actions"]=actions
+                    dict["rewards"]=new_rewards_2d
+                    dict["task"]=goal
+
+                    augmented_episodes[ep_counter]=dict
+                    ep_counter+=1
 
         self.episodes=augmented_episodes # overwrite dataset
 
@@ -596,7 +592,14 @@ class Maze2d_inpaint_dataset_returns_augmented(Maze2d_inpaint_dataset):
             end=self.horizon+start
 
         else:
-            end = random.randint(1, remainding_lenght)+start # TODO maybe change this probability
+           # self.inter=1
+           # if self.inter==-1:
+            #    end = random.randint(1, remainding_lenght)+start # TODO maybe change this probability
+
+           # else:
+            end=start+remainding_lenght
+
+           # self.inter*=-1
 
         observations = episode['observations'][start:end]
         actions = episode['actions'][start:end]
@@ -635,10 +638,10 @@ class Maze2d_inpaint_dataset_returns_augmented(Maze2d_inpaint_dataset):
             returns_array (np.array) (1,)
         """
         distance=np.linalg.norm(observation-task,axis=1)
-        if distance<0.5:
+        if distance<0.2:
             return(np.array([1]))
         else:
-            return(np.array([0]))
+            return(np.array([-1]))
 
 ### dataset augmentation stuff ###
 

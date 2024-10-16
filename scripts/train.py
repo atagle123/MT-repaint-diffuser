@@ -14,7 +14,7 @@ import wandb
 #-----------------------------------------------------------------------------#
 
 dataset="maze2d"
-exp_name="gaussian_diff_returns_condition_H_128_1e-4_aug_ds"
+exp_name="gaussian_diff_returns_condition_H_160_2e-5_aug_ds"
 
 args=load_experiment_params(f"logs/configs/{dataset}/{exp_name}/configs_diffusion.txt")
 
